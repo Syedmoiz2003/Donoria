@@ -1,0 +1,7 @@
+{
+  "css.validate": false,
+  "tailwindCSS.experimental.classRegex": [
+    ["@apply\\s+([^;]+);", "([a-zA-Z0-9-:\/]+)"]
+  ],
+  "tailwindCSS.experimental.configFile": "./tailwind.config.js"
+}

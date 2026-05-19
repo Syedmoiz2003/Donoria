@@ -1,0 +1,286 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Healthcare Theme Colors */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Medical Blue - Primary */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Teal - Secondary */
+    --secondary: 173 80% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 173 80% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Emergency Red */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success Green */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning Orange */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 60%;
+
+    --radius: 1rem;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(217 91% 50%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(173 80% 40%) 0%, hsl(173 80% 35%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 60% / 0.1) 0%, hsl(173 80% 40% / 0.1) 100%);
+    --gradient-emergency: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 84% 50%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.1), 0 2px 4px -2px hsl(222 47% 11% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.1), 0 4px 6px -4px hsl(222 47% 11% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(222 47% 11% / 0.1), 0 8px 10px -6px hsl(222 47% 11% / 0.1);
+    --shadow-card: 0 4px 20px -4px hsl(217 91% 60% / 0.15);
+    --shadow-emergency: 0 4px 20px -4px hsl(0 84% 60% / 0.3);
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 173 80% 95%;
+    --sidebar-accent-foreground: 173 80% 30%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 217 91% 60%;
+  }
+
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 173 80% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 173 80% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 91% 60%;
+
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+  /* Healthcare Card Styles */
+  .healthcare-card {
+    @apply bg-card rounded-2xl p-6 transition-all duration-300;
+    box-shadow: var(--shadow-card);
+  }
+
+  .healthcare-card:hover {
+    @apply -translate-y-1;
+    box-shadow: var(--shadow-xl);
+  }
+
+  /* Emergency Card */
+  .emergency-card {
+    @apply bg-destructive/5 border-2 border-destructive/20 rounded-2xl p-6;
+    box-shadow: var(--shadow-emergency);
+  }
+
+  /* Stat Card */
+  .stat-card {
+    @apply bg-card rounded-2xl p-6 border border-border/50;
+    background: var(--gradient-card);
+  }
+
+  /* Role Card */
+  .role-card {
+    @apply bg-card rounded-2xl p-8 cursor-pointer transition-all duration-300 border-2 border-transparent;
+    box-shadow: var(--shadow-md);
+  }
+
+  .role-card:hover {
+    @apply border-primary -translate-y-2;
+    box-shadow: var(--shadow-xl);
+  }
+
+  /* Badge Styles */
+  .badge-urgent {
+    @apply bg-destructive text-destructive-foreground px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .badge-verified {
+    @apply bg-success text-success-foreground px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .badge-pending {
+    @apply bg-warning text-warning-foreground px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  /* Gradient Text */
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(173 80% 40%) 100%);
+  }
+
+  /* Hero Button */
+  .hero-button {
+    @apply relative overflow-hidden px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300;
+    background: var(--gradient-primary);
+    box-shadow: 0 4px 20px -4px hsl(217 91% 60% / 0.4);
+  }
+
+  .hero-button:hover {
+    @apply -translate-y-1;
+    box-shadow: 0 8px 30px -4px hsl(217 91% 60% / 0.5);
+  }
+
+  /* Emergency Button */
+  .emergency-button {
+    @apply relative overflow-hidden px-6 py-3 rounded-xl font-semibold transition-all duration-300;
+    background: var(--gradient-emergency);
+    box-shadow: var(--shadow-emergency);
+  }
+
+  .emergency-button:hover {
+    @apply -translate-y-0.5;
+    box-shadow: 0 8px 30px -4px hsl(0 84% 60% / 0.5);
+  }
+
+  /* Glass Effect */
+  .glass {
+    @apply backdrop-blur-md bg-card/80 border border-border/50;
+  }
+
+  /* Pulse Animation for Emergency */
+  .pulse-emergency {
+    animation: pulse-emergency 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-emergency {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  /* Fade In Animation */
+  .fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Slide In Animation */
+  .slide-in-left {
+    animation: slideInLeft 0.5s ease-out forwards;
+  }
+
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Float Animation */
+  .float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
