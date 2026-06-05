@@ -5,6 +5,13 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { hospitalApi } from "@/lib/api";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Heart,
   Bell,
   Building2,
@@ -23,15 +30,18 @@ import {
   TrendingUp,
   Home,
   Loader2,
+  User,
 } from "lucide-react";
 
 const HospitalDashboard = () => {
   const { t, language } = useLanguage();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
   const [responses, setResponses] = useState([]);
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const [stats, setStats] = useState({
     activeRequests: 0,
     donorResponses: 0,
@@ -52,9 +62,42 @@ const HospitalDashboard = () => {
     return text;
   };
 
+  // Handle scroll behavior
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    const controlHeader = () => {
+      if (typeof window !== 'undefined') {
+        if (window.scrollY > lastScrollY && window.scrollY > 100) {
+          setIsVisible(false);
+        } else {
+          setIsVisible(true);
+        }
+        setLastScrollY(window.scrollY);
+      }
+    };
+
+    window.addEventListener('scroll', controlHeader);
+    return () => {
+      window.removeEventListener('scroll', controlHeader);
+    };
+  }, [lastScrollY]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        navigate("/login");
+      } else if (user.role !== "hospital") {
+        if (user.role === "donor") {
+          navigate("/donor/dashboard");
+        } else if (user.role === "admin") {
+          navigate("/admin/dashboard");
+        } else {
+          navigate("/login");
+        }
+      } else {
+        loadDashboardData();
+      }
+    }
+  }, [user, authLoading]);
 
   const loadDashboardData = async () => {
     try {
@@ -88,10 +131,32 @@ const HospitalDashboard = () => {
     navigate('/');
   };
 
+  const [uploading, setUploading] = useState(false);
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('document_type', 'MOU Document');
+      formData.append('document_name', file.name);
+
+      await hospitalApi.uploadDocument(formData);
+      toast.success(language === 'ur' ? 'ایم او یو دستاویز کامیابی کے ساتھ اپ لوڈ ہو گئی!' : 'MOU Document uploaded successfully! It will be reviewed by our admin team.');
+    } catch (error) {
+      console.error('Upload failed:', error);
+      toast.error(language === 'ur' ? 'اپ لوڈ کرنے میں ناکامی' : 'Failed to upload document');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 glass border-b border-border">
+      <header className={`sticky top-0 z-50 glass border-b border-border transition-transform duration-300 ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -121,6 +186,34 @@ const HospitalDashboard = () => {
                   <Settings className="w-5 h-5" />
                 </Link>
               </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full bg-muted/50 ml-2">
+                    <User className="w-5 h-5 text-primary" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="cursor-pointer flex items-center w-full">
+                      <User className="w-4 h-4 mr-2" />
+                      {t('navbar.editProfile') || 'Edit Profile'}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/hospital/settings" className="cursor-pointer flex items-center w-full">
+                      <Bell className="w-4 h-4 mr-2" />
+                      {t('navbar.notifications') || 'Notifications'}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {t('navbar.signOut') || 'Sign Out'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg ${profile?.is_verified ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
                 <CheckCircle className="w-4 h-4" />
                 <span className="text-sm font-medium">{profile?.is_verified ? t('hospitalDashboard.verified') : 'Pending Verification'}</span>
@@ -169,7 +262,7 @@ const HospitalDashboard = () => {
                 <AlertTriangle className="w-5 h-5 text-destructive" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-foreground">3</p>
+            <p className="text-2xl font-bold text-foreground">{stats.activeRequests}</p>
             <p className="text-sm text-muted-foreground">{t('hospitalDashboard.activeRequests')}</p>
           </div>
 
@@ -179,7 +272,7 @@ const HospitalDashboard = () => {
                 <Users className="w-5 h-5 text-primary" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-foreground">16</p>
+            <p className="text-2xl font-bold text-foreground">{stats.donorResponses}</p>
             <p className="text-sm text-muted-foreground">{t('hospitalDashboard.donorResponses')}</p>
           </div>
 
@@ -199,7 +292,7 @@ const HospitalDashboard = () => {
                 <TrendingUp className="w-5 h-5 text-secondary" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-foreground">2.1h</p>
+            <p className="text-2xl font-bold text-foreground">{stats.avgResponseTime}</p>
             <p className="text-sm text-muted-foreground">{t('hospitalDashboard.avgResponseTime')}</p>
           </div>
         </div>
@@ -227,12 +320,12 @@ const HospitalDashboard = () => {
                 requests.slice(0, 5).map((request) => {
                   const bloodType = request.blood_group ? `${request.blood_group}${request.rh_factor}` : '';
                   const responseCount = responses.filter(r => r.request_id === request.id).length;
+                  const isPending = request.status === 'pending';
                   
                   return (
                     <div
                       key={request.id}
-                      className={`healthcare-card !p-5 ${request.urgency_level === "critical" ? "border-2 border-destructive/30" : ""
-                        }`}
+                      className={`healthcare-card !p-5 ${request.urgency_level === "critical" ? "border-2 border-destructive/30" : ""} ${isPending ? "opacity-75" : ""}`}
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
@@ -249,12 +342,19 @@ const HospitalDashboard = () => {
                             )}
                           </div>
                           <div>
-                            <p className="font-semibold text-foreground">
-                              {request.request_type === "organ"
-                                ? `${request.organ_type} ${t('hospitalDashboard.needed')}`
-                                : `${request.quantity} ${t('hospitalDashboard.unitsOf')} ${bloodType} ${t('hospitalDashboard.needed')}`
-                              }
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-foreground">
+                                {request.request_type === "organ"
+                                  ? `${request.organ_type} ${t('hospitalDashboard.needed')}`
+                                  : `${request.quantity} ${t('hospitalDashboard.unitsOf')} ${bloodType} ${t('hospitalDashboard.needed')}`
+                                }
+                              </p>
+                              {isPending && (
+                                <span className="bg-warning/10 text-warning text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                  {language === 'ur' ? 'التوا میں' : 'Pending Approval'}
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Clock className="w-4 h-4" />
@@ -284,17 +384,26 @@ const HospitalDashboard = () => {
                       </div>
 
                       <div className="flex gap-2">
-                        <Button variant="default" className="flex-1" asChild>
-                          <Link to={`/hospital/request/${request.id}/responses`}>
-                            <UserCheck className="w-4 h-4 mr-2" />
-                            {t('hospitalDashboard.viewResponses')}
-                          </Link>
-                        </Button>
-                        <Button variant="outline" asChild>
-                          <Link to={`/hospital/request/${request.id}/edit`}>
-                            {t('hospitalDashboard.edit')}
-                          </Link>
-                        </Button>
+                        {!isPending ? (
+                          <>
+                            <Button variant="default" className="flex-1" asChild>
+                              <Link to={`/hospital/request/${request.id}/responses`}>
+                                <UserCheck className="w-4 h-4 mr-2" />
+                                {t('hospitalDashboard.viewResponses')}
+                              </Link>
+                            </Button>
+                            <Button variant="outline" asChild>
+                              <Link to={`/hospital/request/${request.id}/edit`}>
+                                {t('hospitalDashboard.edit')}
+                              </Link>
+                            </Button>
+                          </>
+                        ) : (
+                          <div className="flex-1 text-sm text-muted-foreground bg-muted/30 p-2 rounded-lg flex items-center justify-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            {language === 'ur' ? 'ایڈمن کی منظوری کا انتظار ہے' : 'Waiting for Admin Approval'}
+                          </div>
+                        )}
                         <Button variant="ghost" className="text-destructive hover:text-destructive">
                           {t('hospitalDashboard.close')}
                         </Button>
@@ -411,12 +520,44 @@ const HospitalDashboard = () => {
                   </p>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground mb-4">
                 {profile?.is_verified 
                   ? t('hospitalDashboard.verifiedDescription')
                   : 'Upload verification documents to post donation requests'
                 }
               </p>
+              {!profile?.is_verified && (
+                <div className="relative">
+                  <input
+                    type="file"
+                    id="sidebar-doc-upload"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  />
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-10 border-warning text-warning hover:bg-warning/10" 
+                    asChild
+                    disabled={uploading}
+                  >
+                    <label htmlFor="sidebar-doc-upload" className="cursor-pointer">
+                      {uploading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          {language === 'ur' ? 'اپ لوڈ ہو رہا ہے...' : 'Uploading...'}
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="w-4 h-4 mr-2" />
+                          {language === 'ur' ? 'ایم او یو اپ لوڈ کریں' : 'Upload MOU Document'}
+                        </>
+                      )}
+                    </label>
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>

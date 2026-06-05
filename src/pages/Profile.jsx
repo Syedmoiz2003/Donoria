@@ -13,14 +13,15 @@ import {
   Droplets, 
   Calendar,
   Loader2,
-  LogOut
+  LogOut,
+  Building2,
+  FileText
 } from "lucide-react";
 
 const Profile = () => {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const { t, language } = useLanguage();
-  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,23 +29,7 @@ const Profile = () => {
       navigate("/login");
       return;
     }
-
-    const fetchProfile = async () => {
-      const { data, error } = await supabase
-        .from('donors')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error) {
-        console.error('Error fetching profile:', error);
-      } else {
-        setProfile(data);
-      }
-      setLoading(false);
-    };
-
-    fetchProfile();
+    setLoading(false);
   }, [user, navigate]);
 
   const handleLogout = async () => {
@@ -77,7 +62,7 @@ const Profile = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/donor/dashboard">
+              <Link to={user.role === 'donor' ? "/donor/dashboard" : user.role === 'hospital' ? "/hospital/dashboard" : "/admin/dashboard"}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 {language === 'ur' ? 'ڈیش بورڈ پر واپس جائیں' : 'Back to Dashboard'}
               </Link>
@@ -98,13 +83,15 @@ const Profile = () => {
               <div className="w-24 h-24 rounded-full bg-primary-foreground/20 flex items-center justify-center mx-auto mb-4">
                 <User className="w-12 h-12 text-primary-foreground" />
               </div>
-              <h1 className="text-3xl font-bold mb-1">{profile.name}</h1>
-              <p className="text-primary-foreground/80">{t('profile.donorProfile')}</p>
+              <h1 className="text-3xl font-bold mb-1">{user.full_name}</h1>
+              <p className="text-primary-foreground/80">
+                {user.role === 'donor' ? t('profile.donorProfile') : 'Hospital Profile'}
+              </p>
             </div>
 
             <div className="space-y-6">
               <h2 className="text-xl font-semibold border-b border-primary-foreground/20 pb-3">
-                {t('profile.personalInfo')}
+                {user.role === 'donor' ? t('profile.personalInfo') : 'Hospital Details'}
               </h2>
               
               <div className="grid md:grid-cols-2 gap-8">
@@ -113,7 +100,7 @@ const Profile = () => {
                     <Mail className="w-4 h-4" />
                     {t('profile.email')}
                   </div>
-                  <p className="font-medium text-lg">{profile.email}</p>
+                  <p className="font-medium text-lg">{user.email}</p>
                 </div>
 
                 <div className="space-y-1">
@@ -121,35 +108,74 @@ const Profile = () => {
                     <Phone className="w-4 h-4" />
                     {t('profile.phone')}
                   </div>
-                  <p className="font-medium text-lg">{profile.phone}</p>
+                  <p className="font-medium text-lg">{user.phone}</p>
                 </div>
 
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-primary-foreground/80 text-sm">
-                    <Droplets className="w-4 h-4" />
-                    {t('profile.bloodGroup')}
+                    {user.role === 'donor' ? (
+                      <>
+                        <Droplets className="w-4 h-4" />
+                        {t('profile.bloodGroup')}
+                      </>
+                    ) : (
+                      <>
+                        <Building2 className="w-4 h-4" />
+                        Hospital Type
+                      </>
+                    )}
                   </div>
-                  <p className="font-medium">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary-foreground/20 text-primary-foreground font-bold">
-                      {profile.blood_group}
-                    </span>
+                  <p className="font-medium text-lg">
+                    {user.role === 'donor' ? (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary-foreground/20 text-primary-foreground font-bold">
+                        {profile.blood_group}{profile.rh_factor}
+                      </span>
+                    ) : (
+                      profile.hospital_type || 'General'
+                    )}
                   </p>
                 </div>
 
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-primary-foreground/80 text-sm">
-                    <Calendar className="w-4 h-4" />
-                    {t('profile.dateOfBirth')}
+                    {user.role === 'donor' ? (
+                      <>
+                        <Calendar className="w-4 h-4" />
+                        {t('profile.dateOfBirth')}
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-4 h-4" />
+                        License Number
+                      </>
+                    )}
                   </div>
-                  <p className="font-medium text-lg">{profile.date_of_birth || t('profile.notSet')}</p>
+                  <p className="font-medium text-lg">
+                    {user.role === 'donor' 
+                      ? (profile.date_of_birth || t('profile.notSet')) 
+                      : (profile.license_number || profile.registration_number || t('profile.notSet'))}
+                  </p>
                 </div>
 
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-primary-foreground/80 text-sm">
-                    <User className="w-4 h-4" />
-                    {t('profile.gender')}
+                    {user.role === 'donor' ? (
+                      <>
+                        <User className="w-4 h-4" />
+                        {t('profile.gender')}
+                      </>
+                    ) : (
+                      <>
+                        <User className="w-4 h-4" />
+                        Contact Person
+                      </>
+                    )}
                   </div>
-                  <p className="font-medium text-lg capitalize">{profile.gender || t('profile.notSet')}</p>
+                  <p className="font-medium text-lg capitalize">
+                    {user.role === 'donor' 
+                      ? (profile.gender || t('profile.notSet')) 
+                      : (profile.contact_person ? `${profile.contact_person} (${profile.contact_person_role || 'Staff'})` : t('profile.notSet'))}
+                  </p>
                 </div>
 
                 <div className="space-y-1">
@@ -157,7 +183,9 @@ const Profile = () => {
                     <MapPin className="w-4 h-4" />
                     {t('profile.location')}
                   </div>
-                  <p className="font-medium text-lg">{profile.location || t('profile.notSet')}</p>
+                  <p className="font-medium text-lg">
+                    {profile.city ? `${profile.city}, ${profile.state || ''}` : t('profile.notSet')}
+                  </p>
                 </div>
               </div>
 

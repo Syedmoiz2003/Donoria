@@ -1,50 +1,53 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { hospitalApi } from "@/lib/api";
 import { ArrowLeft, Clock, Heart, Edit, Trash2, ShieldAlert, Plus } from "lucide-react";
 import { toast } from "sonner";
-
-const initialRequests = [
-  {
-    id: 1,
-    bloodType: "O-",
-    units: 3,
-    urgency: "critical",
-    responses: 8,
-    posted: "1 hour ago",
-    type: "blood",
-  },
-  {
-    id: 2,
-    bloodType: "AB+",
-    units: 2,
-    urgency: "high",
-    responses: 4,
-    posted: "5 hours ago",
-    type: "blood",
-  },
-  {
-    id: 3,
-    organType: "Kidney",
-    bloodType: "A+",
-    recipientAge: "42",
-    urgency: "critical",
-    responses: 12,
-    posted: "3 hours ago",
-    type: "organ",
-  },
-];
 
 const HospitalRequests = () => {
   const { t, language } = useLanguage();
   const isRtl = language === 'ur';
-  const [requests, setRequests] = useState(initialRequests);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleClose = (id) => {
-    setRequests(prev => prev.filter(r => r.id !== id));
-    toast.success(isRtl ? "درخواست کامیابی سے بند کر دی گئی ہے۔" : "Case successfully marked as fulfilled & closed.");
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        const data = await hospitalApi.getRequests();
+        const formatted = data.map(req => ({
+          id: req.id,
+          bloodType: (req.blood_group || "") + (req.rh_factor || ""),
+          organType: req.organ_type || "",
+          units: req.quantity || 1,
+          urgency: req.urgency_level || "critical",
+          responses: req.responsesCount || 0,
+          posted: new Date(req.created_at).toLocaleDateString(),
+          type: req.request_type,
+          recipientAge: "N/A"
+        }));
+        setRequests(formatted);
+      } catch (error) {
+        console.error("Failed to load requests:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRequests();
+  }, []);
+
+  const handleClose = async (id) => {
+    try {
+      await hospitalApi.deleteRequest(id);
+      setRequests(prev => prev.filter(r => r.id !== id));
+      toast.success(isRtl ? "درخواست کامیابی سے بند کر دی گئی ہے۔" : "Case successfully marked as fulfilled & closed.");
+    } catch (error) {
+      toast.error(error.message || "Failed to close request");
+    }
   };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background">Loading requests...</div>;
 
   return (
     <div className="min-h-screen bg-background pb-12">

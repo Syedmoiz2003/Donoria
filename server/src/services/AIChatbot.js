@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import config from '../config/index.js';
+import { supabase } from '../config/database.js';
 
 export class AIChatbot {
   static client = null;
@@ -53,15 +54,83 @@ export class AIChatbot {
   }
 
   static async getSessionHistory(sessionId) {
-    return [];
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('role, content')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting session history:', error);
+      return [];
+    }
   }
 
-  static async saveSessionHistory(sessionId, role, content) {
-    console.log(`Saving to session ${sessionId}: ${role} - ${content}`);
+  static async saveSessionHistory(sessionId, role, content, userId = null) {
+    try {
+      // 1. Find or create the session
+      let { data: session, error: sessionError } = await supabase
+        .from('chat_sessions')
+        .select('id')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (sessionError && sessionError.code === 'PGRST116') {
+        // Session not found, create it
+        const { data: newSession, error: createError } = await supabase
+          .from('chat_sessions')
+          .insert([{
+            session_id: sessionId,
+            user_id: userId,
+            created_at: new Date().toISOString(),
+          }])
+          .select()
+          .single();
+        
+        if (createError) throw createError;
+        session = newSession;
+      } else if (sessionError) {
+        throw sessionError;
+      }
+
+      // 2. Save the message
+      const { error: msgError } = await supabase
+        .from('chat_messages')
+        .insert([{
+          session_id: session.id,
+          role,
+          content,
+          created_at: new Date().toISOString(),
+        }]);
+
+      if (msgError) throw msgError;
+    } catch (error) {
+      console.error('Error saving session history:', error);
+    }
   }
 
   static async clearSessionHistory(sessionId) {
-    console.log(`Clearing session ${sessionId}`);
+    try {
+      const { data: session } = await supabase
+        .from('chat_sessions')
+        .select('id')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (session) {
+        const { error } = await supabase
+          .from('chat_messages')
+          .delete()
+          .eq('session_id', session.id);
+        
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error clearing session history:', error);
+    }
   }
 
   static async chat(message, sessionId = null, userId = null) {
@@ -80,13 +149,15 @@ export class AIChatbot {
 
       let messages = [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: message },
       ];
 
+      let dbSessionId = null;
       if (sessionId) {
         const history = await this.getSessionHistory(sessionId);
-        messages = [...history, ...messages];
+        messages = [...messages, ...history];
       }
+
+      messages.push({ role: 'user', content: message });
 
       const completion = await this.client.chat.completions.create({
         model: 'gpt-3.5-turbo',
@@ -98,8 +169,8 @@ export class AIChatbot {
       const response = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
 
       if (sessionId) {
-        await this.saveSessionHistory(sessionId, 'user', message);
-        await this.saveSessionHistory(sessionId, 'assistant', response);
+        await this.saveSessionHistory(sessionId, 'user', message, userId);
+        await this.saveSessionHistory(sessionId, 'assistant', response, userId);
       }
 
       return {

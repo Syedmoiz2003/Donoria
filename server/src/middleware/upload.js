@@ -2,15 +2,8 @@ import multer from 'multer';
 import path from 'path';
 import config from '../config/index.js';
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, config.upload.uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  },
-});
+// Use memory storage so we can upload the buffer directly to Supabase
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const allowedTypes = /jpeg|jpg|png|pdf|doc|docx/;
@@ -20,7 +13,7 @@ const fileFilter = (req, file, cb) => {
   if (mimetype && extname) {
     return cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only images and PDFs are allowed.'));
+    cb(new Error('Invalid file type. Only images, PDFs and Word docs are allowed.'));
   }
 };
 

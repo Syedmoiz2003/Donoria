@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import LanguageSelector from "@/components/ui/LanguageSelector";
 import { 
-  Heart, 
+  Droplet,
   Menu, 
   X, 
   User, 
@@ -17,7 +17,8 @@ import {
   Lock,
   LogOut,
   Settings,
-  LayoutDashboard
+  LayoutDashboard,
+  Globe
 } from "lucide-react";
 
 const ADMIN_EMAIL = "admin@lifelink.com";
@@ -30,53 +31,45 @@ const Navbar = () => {
   const [adminPassword, setAdminPassword] = useState("");
   const [adminError, setAdminError] = useState("");
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const [userRole, setUserRole] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { t } = useLanguage();
-  const { user, signOut } = useAuth();
+  const { t, language } = useLanguage();
+  const { user, signIn, signOut } = useAuth();
   const adminDropdownRef = useRef(null);
   const userMenuRef = useRef(null);
 
   const isActive = (path) => location.pathname === path;
   const isLoggedIn = !!user;
 
-  // Detect user role from Supabase tables
+  // Handle scroll behavior
   useEffect(() => {
-    const detectUserRole = async () => {
-      if (!user) {
-        setUserRole(null);
-        return;
+    const controlNavbar = () => {
+      if (typeof window !== 'undefined') {
+        if (!isOpen && window.scrollY > lastScrollY && window.scrollY > 100) {
+          setIsVisible(false);
+        } else {
+          setIsVisible(true);
+        }
+        setLastScrollY(window.scrollY);
       }
-
-      // Check if user is in donors table
-      const { data: donorData } = await supabase
-        .from('donors')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-
-      if (donorData) {
-        setUserRole('donor');
-        return;
-      }
-
-      // Check if user is in hospitals table
-      const { data: hospitalData } = await supabase
-        .from('hospitals')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-
-      if (hospitalData) {
-        setUserRole('hospital');
-        return;
-      }
-
-      setUserRole(null);
     };
 
-    detectUserRole();
+    window.addEventListener('scroll', controlNavbar);
+    return () => {
+      window.removeEventListener('scroll', controlNavbar);
+    };
+  }, [lastScrollY, isOpen]);
+
+  // Detect user role directly from authenticated user state
+  useEffect(() => {
+    if (user) {
+      setUserRole(user.role);
+    } else {
+      setUserRole(null);
+    }
   }, [user]);
 
   // Close dropdowns when clicking outside
@@ -108,17 +101,18 @@ const Navbar = () => {
     };
   }, [showAdminLogin, showUserMenu]);
 
-  const handleAdminLogin = (e) => {
+  const handleAdminLogin = async (e) => {
     e.preventDefault();
     setAdminError("");
     
-    if (adminEmail === ADMIN_EMAIL && adminPassword === ADMIN_PASSWORD) {
+    const { error } = await signIn(adminEmail, adminPassword, "admin");
+    if (!error) {
       setShowAdminLogin(false);
       setAdminEmail("");
       setAdminPassword("");
       navigate("/admin/dashboard");
     } else {
-      setAdminError("Invalid admin credentials");
+      setAdminError(error.message || "Invalid admin credentials");
     }
   };
 
@@ -131,13 +125,13 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass">
+    <nav className={`fixed top-0 left-0 right-0 z-50 glass transition-transform duration-300 ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Heart className="w-6 h-6 text-primary-foreground" />
+              <Droplet className="w-7 h-7 text-white fill-white" />
             </div>
             <span className="font-bold text-lg lg:text-xl text-foreground">
               {t('home.brandName')}
@@ -329,14 +323,14 @@ const Navbar = () => {
                 className="px-4 py-3 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
                 onClick={() => setIsOpen(false)}
               >
-                Home
+                {t('nav.home')}
               </Link>
               <Link 
                 to="/about" 
                 className="px-4 py-3 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
                 onClick={() => setIsOpen(false)}
               >
-                About
+                {t('nav.about')}
               </Link>
               <Link 
                 to="/how-it-works" 
@@ -347,6 +341,14 @@ const Navbar = () => {
               </Link>
               <div className="border-t border-border my-2" />
               <div className="flex flex-col gap-2 px-2">
+                <div className="flex items-center justify-between px-4 py-3 mb-2 bg-muted/30 rounded-lg">
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    <Globe className="w-4 h-4" />
+                    {language === 'ur' ? 'زبان تبدیل کریں' : 'Change Language'}
+                  </span>
+                  <LanguageSelector />
+                </div>
+                
                 {isLoggedIn ? (
                   // Mobile: User is logged in
                   <>
@@ -399,7 +401,7 @@ const Navbar = () => {
                     </Button>
                     <Button variant="default" className="w-full justify-start" asChild>
                       <Link to="/register" onClick={() => setIsOpen(false)}>
-                        <Heart className="w-4 h-4 mr-2" />
+                        <Droplet className="w-4 h-4 mr-2" />
                         {t('ui.registerAsDonor')}
                       </Link>
                     </Button>

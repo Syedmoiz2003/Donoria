@@ -5,7 +5,9 @@ export class VerificationDocument {
     const { data, error } = await supabase
       .from('verification_documents')
       .insert([{
-        hospital_id: documentData.hospital_id,
+        hospital_id: documentData.hospital_id || null,
+        donor_id: documentData.donor_id || null,
+        response_id: documentData.response_id || null,
         document_type: documentData.document_type,
         document_name: documentData.document_name,
         file_url: documentData.file_url,

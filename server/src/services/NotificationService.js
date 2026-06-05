@@ -1,13 +1,13 @@
-import emailjs from '@emailjs/browser';
 import twilio from 'twilio';
+import emailjs from '@emailjs/nodejs';
 import config from '../config/index.js';
 
 export class NotificationService {
   static twilioClient = null;
 
   static initializeEmailJS() {
-    if (!config.emailjs.serviceId || !config.emailjs.templateId || !config.emailjs.publicKey) {
-      console.log('EmailJS not configured');
+    if (!config.emailjs.serviceId || !config.emailjs.templateId || !config.emailjs.publicKey || !config.emailjs.privateKey) {
+      console.log('EmailJS not fully configured (missing serviceId, templateId, publicKey, or privateKey)');
       return false;
     }
     return true;
@@ -22,28 +22,32 @@ export class NotificationService {
   static async sendEmail(to, subject, html, text) {
     try {
       if (!this.initializeEmailJS()) {
-        console.log('EmailJS service not configured');
         return false;
       }
 
+      // Parameters mapped to your EmailJS Template
       const templateParams = {
         to_email: to,
         subject: subject,
         html_content: html,
-        text_content: text,
+        text_content: text || html.replace(/<[^>]*>/g, ''),
+        app_name: 'Donoria'
       };
 
       const response = await emailjs.send(
         config.emailjs.serviceId,
         config.emailjs.templateId,
         templateParams,
-        config.emailjs.publicKey
+        {
+          publicKey: config.emailjs.publicKey,
+          privateKey: config.emailjs.privateKey,
+        }
       );
 
-      console.log('Email sent:', response.status);
+      console.log(`Email sent successfully to ${to}:`, response.status);
       return true;
     } catch (error) {
-      console.error('Email error:', error);
+      console.error(`Email error for ${to}:`, error);
       return false;
     }
   }
@@ -85,46 +89,88 @@ export class NotificationService {
     const channels = this.determineChannels(request.urgency_level);
     const hospital = request.hospitals;
     const user = donor.users;
+    const isOrgan = request.request_type === 'organ';
 
-    const subject = `Urgent Blood Donation Request - ${request.urgency_level.toUpperCase()}`;
+    const subject = isOrgan 
+      ? `🚨 Urgent Organ Donation Request: ${request.organ_type} needed at ${hospital?.hospital_name}`
+      : `🆘 Action Needed: ${request.blood_group}${request.rh_factor} Blood Donation Request`;
+
     const html = `
-      <h2>Blood Donation Request</h2>
-      <p>Dear ${user.full_name},</p>
-      <p>There is an urgent blood donation request that matches your profile:</p>
-      <ul>
-        <li><strong>Blood Group:</strong> ${request.blood_group}${request.rh_factor}</li>
-        <li><strong>Quantity:</strong> ${request.quantity} ${request.unit}</li>
-        <li><strong>Urgency:</strong> ${request.urgency_level}</li>
-        <li><strong>Deadline:</strong> ${new Date(request.deadline).toLocaleDateString()}</li>
-        <li><strong>Hospital:</strong> ${hospital?.hospital_name}</li>
-        <li><strong>Location:</strong> ${hospital?.city}, ${hospital?.state}</li>
-      </ul>
-      <p>${request.description || ''}</p>
-      <p>Please log in to your account to respond to this request.</p>
-      <p>Thank you for being a life saver!</p>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <div style="background-color: #e11d48; padding: 24px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Donation Opportunity</h1>
+        </div>
+        <div style="padding: 32px; background-color: white;">
+          <p style="font-size: 18px; color: #1e293b; margin-bottom: 24px;">Dear <strong>${user.full_name}</strong>,</p>
+          <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+            A new <strong>${request.request_type}</strong> donation request has been posted that matches your profile. Because you are currently eligible to donate, your help is desperately needed.
+          </p>
+          
+          <div style="background-color: #f8fafc; padding: 24px; border-radius: 8px; margin: 32px 0; border-left: 4px solid #e11d48;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-weight: 600;">TYPE:</td>
+                <td style="padding: 8px 0; color: #1e293b; text-transform: uppercase;">${request.request_type}</td>
+              </tr>
+              ${!isOrgan ? `
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-weight: 600;">BLOOD GROUP:</td>
+                <td style="padding: 8px 0; color: #e11d48; font-weight: bold;">${request.blood_group}${request.rh_factor}</td>
+              </tr>
+              ` : `
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-weight: 600;">ORGAN:</td>
+                <td style="padding: 8px 0; color: #e11d48; font-weight: bold;">${request.organ_type}</td>
+              </tr>
+              `}
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-weight: 600;">URGENCY:</td>
+                <td style="padding: 8px 0; color: #e11d48; font-weight: bold; text-transform: uppercase;">${request.urgency_level}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-weight: 600;">HOSPITAL:</td>
+                <td style="padding: 8px 0; color: #1e293b;">${hospital?.hospital_name}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-weight: 600;">LOCATION:</td>
+                <td style="padding: 8px 0; color: #1e293b;">${hospital?.city}, ${hospital?.state}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-weight: 600;">DEADLINE:</td>
+                <td style="padding: 8px 0; color: #1e293b;">${new Date(request.deadline).toLocaleString()}</td>
+              </tr>
+            </table>
+          </div>
+
+          ${request.description ? `
+          <div style="margin-bottom: 32px;">
+            <p style="color: #64748b; font-size: 14px; margin-bottom: 8px; font-weight: 600;">HOSPITAL MESSAGE:</p>
+            <p style="color: #475569; font-style: italic; background-color: #fffbeb; padding: 16px; border-radius: 8px; border: 1px solid #fef3c7;">"${request.description}"</p>
+          </div>
+          ` : ''}
+
+          <div style="text-align: center; margin-top: 40px;">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/donor/request/${request.id}/respond" 
+               style="background-color: #e11d48; color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; display: inline-block;">
+              I AM READY TO HELP
+            </a>
+          </div>
+        </div>
+        <div style="background-color: #f1f5f9; padding: 24px; text-align: center; font-size: 14px; color: #64748b;">
+          <p style="margin: 0 0 8px 0;">Donoria - Connecting Life Through Donation</p>
+          <p style="margin: 0;">This email was sent to your registered Gmail address: ${user.email}</p>
+        </div>
+      </div>
     `;
 
-    const text = `
-      Blood Donation Request
-      Dear ${user.full_name},
-      There is an urgent blood donation request that matches your profile.
-      Blood Group: ${request.blood_group}${request.rh_factor}
-      Quantity: ${request.quantity} ${request.unit}
-      Urgency: ${request.urgency_level}
-      Deadline: ${new Date(request.deadline).toLocaleDateString()}
-      Hospital: ${hospital?.hospital_name}
-      Location: ${hospital?.city}, ${hospital?.state}
-      Please log in to your account to respond to this request.
-    `;
-
-    const smsMessage = `
-      URGENT: Blood donation request for ${request.blood_group}${request.rh_factor} at ${hospital?.hospital_name}, ${hospital?.city}. Deadline: ${new Date(request.deadline).toLocaleDateString()}. Login to respond.
-    `;
+    const smsMessage = isOrgan 
+      ? `LIFE-LINK: Urgent ${request.organ_type} request at ${hospital?.hospital_name}. You are in the 20km radius and eligible to help! Respond here: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/donor/request/${request.id}/respond`
+      : `LIFE-LINK: Urgent ${request.blood_group}${request.rh_factor} blood needed at ${hospital?.hospital_name}. You are nearby and eligible! Respond: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/donor/request/${request.id}/respond`;
 
     const results = {};
 
     if (channels.includes('email') && user.email) {
-      results.email = await this.sendEmail(user.email, subject, html, text);
+      results.email = await this.sendEmail(user.email, subject, html);
     }
 
     if (channels.includes('sms') && user.phone) {
@@ -134,7 +180,7 @@ export class NotificationService {
     if (channels.includes('push')) {
       results.push = await this.sendPushNotification(donor.id, {
         title: subject,
-        body: `Urgent request for ${request.blood_group}${request.rh_factor} blood`,
+        body: `You are eligible to respond to this ${request.request_type} request`,
         data: { requestId: request.id },
       });
     }

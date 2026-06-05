@@ -25,7 +25,7 @@ const LanguageSelector = () => {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="flex items-center gap-2">
           <Globe className="w-4 h-4" />
-          <span className="hidden sm:inline">
+          <span className="inline-flex items-center gap-1">
             {currentLanguage?.flag} {currentLanguage?.name}
           </span>
           <ChevronDown className="w-4 h-4" />

@@ -33,6 +33,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [pendingHospitals, setPendingHospitals] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [stats, setStats] = useState({
     pendingVerifications: 0,
     verifiedHospitals: 0,
@@ -63,20 +64,31 @@ const AdminDashboard = () => {
       
       if (data.stats) {
         setStats({
-          pendingVerifications: data.stats.hospitals || 0,
+          pendingVerifications: data.stats.pendingVerifications || 0,
           verifiedHospitals: data.stats.hospitals || 0,
           totalDonors: data.stats.donors || 0,
-          organRequests: data.stats.donationRequests || 0,
+          organRequests: data.stats.pendingOrganRequests || 0,
         });
       }
 
-      if (data.recentActivity) {
-        setPendingHospitals(data.recentActivity.users?.filter(u => u.role === 'hospital') || []);
-      }
+      setPendingHospitals(data.recentActivity.pendingHospitals || []);
+      setPendingRequests(data.recentActivity.pendingOrganRequests || []);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApproveRequest = async (id) => {
+    try {
+      await adminApi.approveRequest(id);
+      toast.success(language === 'ur' ? 'درخواست منظور کر لی گئی ہے!' : 'Donation request approved!');
+      setPendingRequests(prev => prev.filter(r => r.id !== id));
+      setStats(prev => ({ ...prev, organRequests: Math.max(0, prev.organRequests - 1) }));
+    } catch (error) {
+      console.error('Approval failed:', error);
+      toast.error(language === 'ur' ? 'منظوری میں ناکامی' : 'Failed to approve request');
     }
   };
 
@@ -142,17 +154,17 @@ const AdminDashboard = () => {
                 <Clock className="w-5 h-5 text-warning" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-foreground">3</p>
+            <p className="text-2xl font-bold text-foreground">{stats.pendingVerifications}</p>
             <p className="text-sm text-muted-foreground">{t('adminDashboard.pendingVerifications')}</p>
           </div>
 
           <div className="healthcare-card">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-success" />
+                <CheckCircle className="w-5 h-5 text-success" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-foreground">215</p>
+            <p className="text-2xl font-bold text-foreground">{stats.verifiedHospitals}</p>
             <p className="text-sm text-muted-foreground">{t('adminDashboard.verifiedHospitals')}</p>
           </div>
 
@@ -178,61 +190,120 @@ const AdminDashboard = () => {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Pending Hospital Verifications */}
-          <div className="lg:col-span-2">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-warning" />
-                {t('adminDashboard.pendingVerifications')}
-              </h2>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/admin/verify">{t('adminDashboard.viewAll')}</Link>
-              </Button>
+          {/* Pending Actions */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Pending Hospital Verifications */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-warning" />
+                  {t('adminDashboard.pendingVerifications')}
+                </h2>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/admin/verify">{t('adminDashboard.viewAll')}</Link>
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                ) : pendingHospitals.length === 0 ? (
+                  <div className="text-center py-12 healthcare-card text-muted-foreground">
+                    <p>{language === 'ur' ? 'کوئی نئی تصدیق التوا میں نہیں ہے' : 'No new hospital verifications pending'}</p>
+                  </div>
+                ) : (
+                  pendingHospitals.slice(0, 3).map((hospital) => (
+                    <div key={hospital.id} className="healthcare-card !p-5">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
+                            <Building2 className="w-6 h-6 text-secondary" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">{hospital.hospital_name || hospital.users?.full_name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {hospital.city}, {hospital.state} • {hospital.license_number}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button variant="default" className="flex-1" asChild>
+                          <Link to={`/admin/verify/${hospital.id}`}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            {t('adminDashboard.reviewDocuments')}
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
-            <div className="space-y-4">
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-              ) : pendingHospitals.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>No pending verifications</p>
-                </div>
-              ) : (
-                pendingHospitals.slice(0, 5).map((hospital) => (
-                  <div key={hospital.id} className="healthcare-card !p-5">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
-                          <Building2 className="w-6 h-6 text-secondary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{hospital.full_name || 'Hospital'}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {translate('Reg:')} {hospital.email}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${hospital.is_active ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                          {hospital.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                        <p className="text-xs text-muted-foreground mt-1">{new Date(hospital.created_at).toLocaleDateString()}</p>
-                      </div>
-                    </div>
+            {/* Pending Organ Requests */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                  <Heart className="w-5 h-5 text-destructive" />
+                  {language === 'ur' ? 'اعضاء کی زیر التوا درخواستیں' : 'Pending Organ Requests'}
+                </h2>
+              </div>
 
-                    <div className="flex gap-2">
-                      <Button variant="default" className="flex-1" asChild>
-                        <Link to={`/admin/users`}>
-                          <Eye className="w-4 h-4 mr-2" />
-                          {t('adminDashboard.reviewDocuments')}
-                        </Link>
-                      </Button>
-                    </div>
+              <div className="space-y-4">
+                {loading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   </div>
-                ))
-              )}
+                ) : pendingRequests.length === 0 ? (
+                  <div className="text-center py-8 healthcare-card text-muted-foreground">
+                    <p>{language === 'ur' ? 'کوئی نئی درخواست التوا میں نہیں ہے' : 'No new organ requests pending'}</p>
+                  </div>
+                ) : (
+                  pendingRequests.slice(0, 5).map((request) => (
+                    <div key={request.id} className="healthcare-card !p-5 border-l-4 border-destructive">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center text-destructive">
+                            <Heart className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">
+                              {request.organ_type} {language === 'ur' ? 'درکار ہے' : 'Needed'}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {request.hospitals?.hospital_name} • {request.urgency_level.toUpperCase()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">{new Date(request.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="default" 
+                          className="flex-1 bg-success hover:bg-success/90" 
+                          onClick={() => handleApproveRequest(request.id)}
+                        >
+                          <Check className="w-4 h-4 mr-2" />
+                          {language === 'ur' ? 'منظور کریں' : 'Approve Request'}
+                        </Button>
+                        <Button variant="outline" asChild>
+                          <Link to={`/admin/users`}>
+                            <Eye className="w-4 h-4 mr-1" />
+                            {language === 'ur' ? 'تفصیلات' : 'Details'}
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
 
@@ -256,7 +327,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex items-center justify-between py-2">
                   <span className="text-sm text-muted-foreground">{t('adminDashboard.feedbackReceived')}</span>
-                  <span className="font-semibold text-foreground">8</span>
+                  <span className="font-semibold text-foreground">{dashboardData?.stats?.unreadFeedback || 0}</span>
                 </div>
               </div>
             </div>

@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/contexts/LanguageContext";
-import allRequests from "@/data/requests";
+import { donorApi } from "@/lib/api";
 import {
   Heart,
   ArrowLeft,
@@ -19,7 +19,9 @@ import {
   Calendar,
   User,
   Navigation,
+  Loader2,
 } from "lucide-react";
+
 
 const HospitalMap = ({ hospital }) => {
   const mapRef = useRef(null);
@@ -227,15 +229,76 @@ export default function RequestDetails() {
   const [consent, setConsent] = useState(false);
   const [availability, setAvailability] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [requestData, setRequestData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Find the request by ID from URL
-  const requestData = allRequests.find(r => r.id === parseInt(id)) || allRequests[0];
+  useEffect(() => {
+    const loadRequest = async () => {
+      try {
+        const res = await donorApi.getRequest(id);
+        const req = res.request;
+        setRequestData({
+          id: req.id,
+          hospital: req.hospitals?.hospital_name || "Hospital",
+          type: req.request_type,
+          bloodType: (req.blood_group || "") + (req.rh_factor || ""),
+          organType: req.organ_type || "",
+          units: req.quantity || 1,
+          urgency: req.urgency_level || "high",
+          verified: req.hospitals?.is_verified,
+          distance: "2 km away",
+          time: "10 mins ago",
+          postedBy: req.hospitals?.contact_person || "Hospital Staff",
+          phone: req.hospitals?.emergency_contact || "N/A",
+          email: req.hospitals?.users?.email || "N/A",
+          address: req.hospitals?.address || "N/A",
+          compatibility: 100,
+          requirements: [
+            "Must be feeling well today",
+            "Bring a valid ID",
+            "Eat a healthy meal before donation"
+          ],
+          postedDate: new Date(req.created_at).toLocaleDateString(),
+          recipientAge: "N/A",
+          lat: req.hospitals?.latitude,
+          lng: req.hospitals?.longitude
+        });
+      } catch (err) {
+        console.error("Failed to load request", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadRequest();
+  }, [id]);
 
   const handleSubmit = () => {
     setSubmitted(true);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!requestData) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
+        <h2 className="text-xl font-bold text-foreground mb-2">Request Not Found</h2>
+        <p className="text-muted-foreground mb-6">The donation request could not be loaded or does not exist.</p>
+        <Button asChild>
+          <Link to="/donor/dashboard">Return to Dashboard</Link>
+        </Button>
+      </div>
+    );
+  }
+
   const isOrgan = requestData.type === "organ";
+
 
   if (submitted) {
     return (

@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { Link, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
-  Heart, 
+  Droplets, 
   Building2, 
   Shield, 
   ArrowLeft, 
@@ -14,7 +14,8 @@ import {
   EyeOff,
   Mail,
   Lock,
-  Loader2
+  Loader2,
+  Heart
 } from "lucide-react";
 
 const ADMIN_EMAIL = "admin@lifelink.com";
@@ -22,7 +23,7 @@ const ADMIN_PASSWORD = "admin123";
 
 const roleConfig = {
   donor: {
-    icon: Heart,
+    icon: Droplets,
     titleKey: 'login.title',
     subtitleKey: 'login.donorSubtitle',
     color: "bg-primary",
@@ -48,9 +49,19 @@ const roleConfig = {
 };
 
 const Login = () => {
+  const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const role = searchParams.get("role") || "donor";
+  
+  let role = "donor";
+  if (pathname.includes("/admin")) {
+    role = "admin";
+  } else if (pathname.includes("/hospital")) {
+    role = "hospital";
+  } else {
+    role = searchParams.get("role") || "donor";
+  }
+
   const config = roleConfig[role];
   const { t } = useLanguage();
   const { signIn, user, profile } = useAuth();
@@ -80,18 +91,7 @@ const Login = () => {
     setIsLoading(true);
     setError(null);
 
-    if (role === "admin") {
-      if (formData.email === ADMIN_EMAIL && formData.password === ADMIN_PASSWORD) {
-        navigate("/admin/dashboard");
-        return;
-      } else {
-        setError(t('login.invalidCredentials'));
-        setIsLoading(false);
-        return;
-      }
-    }
-
-    const { error: signInError } = await signIn(formData.email, formData.password);
+    const { error: signInError } = await signIn(formData.email, formData.password, role);
 
     if (signInError) {
       setError(signInError.message || t('login.invalidCredentials'));

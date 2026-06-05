@@ -46,11 +46,10 @@ export class Donor {
     const { data, error } = await supabase
       .from('donors')
       .select('*')
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
 
     if (error) throw error;
-    return data;
+    return data && data.length > 0 ? data[0] : null;
   }
 
   static async update(id, updateData) {

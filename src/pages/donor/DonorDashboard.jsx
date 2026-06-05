@@ -36,7 +36,7 @@ import {
 
 const DonorDashboard = () => {
   const { t, language } = useLanguage();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("All");
@@ -45,6 +45,8 @@ const DonorDashboard = () => {
   const [requests, setRequests] = useState([]);
   const [donationHistory, setDonationHistory] = useState([]);
   const [eligibility, setEligibility] = useState(null);
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const [stats, setStats] = useState({
     totalDonations: 0,
     livesSaved: 0,
@@ -83,9 +85,42 @@ const DonorDashboard = () => {
     return text;
   };
 
+  // Handle scroll behavior
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    const controlHeader = () => {
+      if (typeof window !== 'undefined') {
+        if (window.scrollY > lastScrollY && window.scrollY > 100) {
+          setIsVisible(false);
+        } else {
+          setIsVisible(true);
+        }
+        setLastScrollY(window.scrollY);
+      }
+    };
+
+    window.addEventListener('scroll', controlHeader);
+    return () => {
+      window.removeEventListener('scroll', controlHeader);
+    };
+  }, [lastScrollY]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        navigate("/login");
+      } else if (user.role !== "donor") {
+        if (user.role === "hospital") {
+          navigate("/hospital/dashboard");
+        } else if (user.role === "admin") {
+          navigate("/admin/dashboard");
+        } else {
+          navigate("/login");
+        }
+      } else {
+        loadDashboardData();
+      }
+    }
+  }, [user, authLoading]);
 
   const loadDashboardData = async () => {
     try {
@@ -139,7 +174,7 @@ const DonorDashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 glass border-b border-border">
+      <header className={`sticky top-0 z-50 glass border-b border-border transition-transform duration-300 ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}

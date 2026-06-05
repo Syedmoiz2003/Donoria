@@ -15,7 +15,7 @@ export class DonationRequest {
         unit: requestData.unit || 'units',
         deadline: requestData.deadline,
         description: requestData.description,
-        status: 'active',
+        status: requestData.request_type === 'organ' ? 'pending' : 'active',
         created_at: new Date().toISOString(),
       }])
       .select()
@@ -81,6 +81,10 @@ export class DonationRequest {
 
     if (filters.blood_group) {
       query = query.eq('blood_group', filters.blood_group);
+    }
+
+    if (filters.rh_factor) {
+      query = query.eq('rh_factor', filters.rh_factor);
     }
 
     if (filters.urgency_level) {

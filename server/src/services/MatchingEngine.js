@@ -2,6 +2,7 @@ import { Donor } from '../models/Donor.js';
 import { DonationRequest } from '../models/DonationRequest.js';
 import { NotificationService } from './NotificationService.js';
 import config from '../config/index.js';
+import { supabase } from '../config/database.js';
 
 export class MatchingEngine {
   static async findMatchingDonors(requestId) {
@@ -31,18 +32,27 @@ export class MatchingEngine {
     );
 
     const scoredDonors = donors.map(donor => {
+      const distance = (donor.latitude && donor.longitude && hospital.latitude && hospital.longitude)
+        ? this.calculateDistance(donor.latitude, donor.longitude, hospital.latitude, hospital.longitude)
+        : null;
+      
       const score = this.calculateBloodMatchScore(donor, request, hospital);
-      return { ...donor, matchScore: score };
+      return { ...donor, matchScore: score, distance };
     });
 
-    scoredDonors.sort((a, b) => b.matchScore - a.matchScore);
+    // Filter by 20km radius if coordinates are available
+    const filteredDonors = scoredDonors.filter(donor => {
+      if (donor.distance === null) return true; // Include if distance can't be calculated
+      return donor.distance <= 20;
+    });
 
-    return scoredDonors.slice(0, 20);
+    filteredDonors.sort((a, b) => b.matchScore - a.matchScore);
+
+    return filteredDonors.slice(0, 20);
   }
 
   static async findOrganDonors(request) {
     const hospital = request.hospitals;
-    const city = hospital?.city;
 
     const { data, error } = await supabase
       .from('donors')
@@ -53,13 +63,23 @@ export class MatchingEngine {
     if (error) throw error;
 
     const scoredDonors = data.map(donor => {
+      const distance = (donor.latitude && donor.longitude && hospital.latitude && hospital.longitude)
+        ? this.calculateDistance(donor.latitude, donor.longitude, hospital.latitude, hospital.longitude)
+        : null;
+
       const score = this.calculateOrganMatchScore(donor, request, hospital);
-      return { ...donor, matchScore: score };
+      return { ...donor, matchScore: score, distance };
     });
 
-    scoredDonors.sort((a, b) => b.matchScore - a.matchScore);
+    // Filter by 20km radius if coordinates are available
+    const filteredDonors = scoredDonors.filter(donor => {
+      if (donor.distance === null) return true;
+      return donor.distance <= 20;
+    });
 
-    return scoredDonors.slice(0, 20);
+    filteredDonors.sort((a, b) => b.matchScore - a.matchScore);
+
+    return filteredDonors.slice(0, 20);
   }
 
   static calculateBloodMatchScore(donor, request, hospital) {
@@ -198,11 +218,21 @@ export class MatchingEngine {
     const matchedDonors = await this.findMatchingDonors(requestId);
     const request = await DonationRequest.findById(requestId);
 
+    const notifiedDonors = [];
+
     for (const donor of matchedDonors) {
-      await NotificationService.sendDonationRequestNotification(donor, request);
+      // CRITICAL: Check eligibility before sending email
+      const eligibility = await Donor.checkEligibility(donor.id);
+      
+      if (eligibility.eligible) {
+        await NotificationService.sendDonationRequestNotification(donor, request);
+        notifiedDonors.push(donor);
+      } else {
+        console.log(`Donor ${donor.id} matched but is not eligible: ${eligibility.reason}`);
+      }
     }
 
-    return matchedDonors;
+    return notifiedDonors;
   }
 
   static async autoMatchRequest(requestId) {

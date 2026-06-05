@@ -1,29 +1,63 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ArrowLeft, MessageSquare, ShieldCheck, Trash2, ShieldAlert, Check } from "lucide-react";
+import { ArrowLeft, MessageSquare, ShieldCheck, Trash2, ShieldAlert, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-
-const mockFeedback = [
-  { id: 1, user: "City General (Coordinator)", type: "suggestion", text: "Adding a WhatsApp integration for active blood match calls would drastically increase the speed.", date: "1 day ago", status: "unread" },
-  { id: 2, user: "Ayesha Malik (Donor)", type: "bug", text: "Unable to upload my latest clinical lab report in PDF. It says file size exceeded but the file is only 1.2MB.", date: "2 days ago", status: "unread" },
-  { id: 3, user: "Metro Health Center", type: "complaint", text: "A donor registered for kidney match failed to show up twice without any cancellation alert.", date: "3 days ago", status: "resolved" },
-];
+import { adminApi } from "@/lib/api";
+import { formatDistanceToNow } from "date-fns";
 
 const AdminFeedback = () => {
   const { t, language } = useLanguage();
   const isRtl = language === 'ur';
-  const [feedbacks, setFeedbacks] = useState(mockFeedback);
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleResolve = (id) => {
-    setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status: "resolved" } : f));
-    toast.success(isRtl ? "تاثرات کو کامیابی سے حل کر دیا گیا ہے!" : "Feedback marked as resolved!");
+  useEffect(() => {
+    fetchFeedbacks();
+  }, []);
+
+  const fetchFeedbacks = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getFeedback();
+      setFeedbacks(data);
+    } catch (error) {
+      console.error("Error fetching feedbacks:", error);
+      toast.error(isRtl ? "تاثرات لوڈ کرنے میں غلطی ہوئی" : "Error loading feedbacks");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDelete = (id) => {
-    setFeedbacks(prev => prev.filter(f => f.id !== id));
-    toast.success(isRtl ? "تاثرات کو کامیابی سے حذف کر دیا گیا ہے۔" : "Feedback entry deleted.");
+  const handleResolve = async (id) => {
+    try {
+      await adminApi.resolveFeedback(id);
+      setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status: "resolved" } : f));
+      toast.success(isRtl ? "تاثرات کو کامیابی سے حل کر دیا گیا ہے!" : "Feedback marked as resolved!");
+    } catch (error) {
+      console.error("Error resolving feedback:", error);
+      toast.error(isRtl ? "تاثرات کو حل کرنے میں غلطی ہوئی" : "Error resolving feedback");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await adminApi.deleteFeedback(id);
+      setFeedbacks(prev => prev.filter(f => f.id !== id));
+      toast.success(isRtl ? "تاثرات کو کامیابی سے حذف کر دیا گیا ہے۔" : "Feedback entry deleted.");
+    } catch (error) {
+      console.error("Error deleting feedback:", error);
+      toast.error(isRtl ? "تاثرات حذف کرنے میں غلطی ہوئی" : "Error deleting feedback");
+    }
+  };
+
+  const getRelativeTime = (dateString) => {
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch (e) {
+      return dateString;
+    }
   };
 
   return (
@@ -48,7 +82,12 @@ const AdminFeedback = () => {
       {/* Main Container */}
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="space-y-4">
-          {feedbacks.length > 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+              <p className="text-muted-foreground">{isRtl ? "لوڈ ہو رہا ہے..." : "Loading feedback..."}</p>
+            </div>
+          ) : feedbacks.length > 0 ? (
             feedbacks.map((item) => (
               <div 
                 key={item.id} 
@@ -68,10 +107,12 @@ const AdminFeedback = () => {
                       }`}>
                         {item.type}
                       </span>
-                      <span className="text-xs text-muted-foreground">{item.date}</span>
+                      <span className="text-xs text-muted-foreground">{getRelativeTime(item.created_at)}</span>
                     </div>
 
-                    <h4 className="font-bold text-foreground text-sm">{item.user}</h4>
+                    <h4 className="font-bold text-foreground text-sm">
+                      {item.users ? `${item.users.full_name || 'User'} (${item.users.role})` : 'Anonymous User'}
+                    </h4>
                   </div>
 
                   <span className={`text-xs font-bold uppercase ${item.status === "resolved" ? "text-success" : "text-muted-foreground"}`}>
@@ -113,3 +154,4 @@ const AdminFeedback = () => {
 };
 
 export default AdminFeedback;
+

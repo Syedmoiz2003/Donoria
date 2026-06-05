@@ -31,6 +31,10 @@ import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
+import FAQ from "./pages/FAQ";
+import Verification from "./pages/Verification";
+import Guidelines from "./pages/Guidelines";
+import Support from "./pages/Support";
 
 // Hospital Sub-Feature Pages
 import PostRequest from "./pages/hospital/PostRequest";
@@ -39,6 +43,7 @@ import EditRequest from "./pages/hospital/EditRequest";
 import HospitalInventory from "./pages/hospital/HospitalInventory";
 import HospitalReports from "./pages/hospital/HospitalReports";
 import HospitalSettings from "./pages/hospital/HospitalSettings";
+import ContactDonor from "./pages/hospital/ContactDonor";
 
 // Admin Sub-Feature Pages
 import AdminSettings from "./pages/admin/AdminSettings";
@@ -66,6 +71,10 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/verification" element={<Verification />} />
+              <Route path="/guidelines" element={<Guidelines />} />
+              <Route path="/support" element={<Support />} />
               <Route path="/admin/login" element={<Login />} />
               <Route path="/hospital/login" element={<Login />} />
               <Route path="/register" element={<RegisterSelect />} />
@@ -90,6 +99,7 @@ const App = () => (
               <Route path="/hospital/inventory" element={<HospitalInventory />} />
               <Route path="/hospital/reports" element={<HospitalReports />} />
               <Route path="/hospital/settings" element={<HospitalSettings />} />
+              <Route path="/hospital/response/:id/contact" element={<ContactDonor />} />
               
               {/* Admin Sub-Routes */}
               <Route path="/admin/dashboard" element={<AdminDashboard />} />

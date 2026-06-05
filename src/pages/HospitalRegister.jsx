@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { 
   Building2, 
   ArrowLeft, 
@@ -28,14 +30,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const states = [
-  "California", "Texas", "Florida", "New York", "Pennsylvania",
-  "Illinois", "Ohio", "Georgia", "North Carolina", "Michigan"
+const defaultStates = [
+  "Punjab",
+  "Sindh",
+  "Khyber Pakhtunkhwa",
+  "Balochistan",
+  "Islamabad Capital Territory",
+  "Azad Kashmir",
+  "Gilgit-Baltistan"
 ];
 
 const HospitalRegister = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const { signUp } = useAuth();
 
   const hospitalTypes = [
     t('hospitalRegister.typeGovernment'),
@@ -67,7 +75,199 @@ const HospitalRegister = () => {
     emergencyContact: "",
     bedCapacity: "",
     icuCapacity: "",
+    latitude: null,
+    longitude: null,
   });
+  const [dynamicStates, setDynamicStates] = useState(defaultStates);
+
+  useEffect(() => {
+    // Only load autocomplete if we are on Step 2 where the address input is rendered
+    if (step !== 2) return;
+
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.warn("Google Maps API key not found in env configuration.");
+      return;
+    }
+
+    // Set configuration options for the loader (v2 API)
+    setOptions({
+      key: apiKey,
+      apiKey: apiKey,
+      version: "weekly"
+    });
+
+    let autocomplete = null;
+
+    // Load Places and Geocoding libraries dynamically
+    Promise.all([
+      importLibrary("places"),
+      importLibrary("geocoding")
+    ]).then(() => {
+      const addressInput = document.getElementById("address");
+      if (!addressInput) return;
+
+      // Default country is Pakistan
+      let detectedCountryCode = "pk";
+      let detectedCountryName = "Pakistan";
+
+      // Helper function to fetch states/provinces dynamically for the active country
+      const fetchStatesForCountry = (countryName) => {
+        try {
+          const dummyElement = document.createElement("div");
+          const placesService = new window.google.maps.places.PlacesService(dummyElement);
+          placesService.textSearch(
+            {
+              query: `provinces and states and territories of ${countryName}`,
+            },
+            (results, status) => {
+              if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+                const fetched = results
+                  .map((place) => {
+                    const name = place.name || "";
+                    // Strip the country name from predictions
+                    return name.replace(new RegExp(`,?\\s*${countryName}$`, "i"), "").trim();
+                  })
+                  .filter((name) => name && name.toLowerCase() !== countryName.toLowerCase() && name.length > 2);
+                
+                if (fetched.length > 0) {
+                  const unique = [...new Set(fetched)].sort();
+                  setDynamicStates(unique);
+                }
+              }
+            }
+          );
+        } catch (err) {
+          console.error("Error fetching states dynamically:", err);
+        }
+      };
+
+      // Helper to initialize Autocomplete restricted to the detected country code
+      const initAutocomplete = (countryCode) => {
+        if (autocomplete) {
+          window.google.maps.event.clearInstanceListeners(autocomplete);
+        }
+        autocomplete = new window.google.maps.places.Autocomplete(addressInput, {
+          componentRestrictions: { country: countryCode },
+          fields: ["address_components", "geometry", "formatted_address"],
+          types: ["address"]
+        });
+
+        autocomplete.addListener("place_changed", () => {
+          const place = autocomplete.getPlace();
+          if (!place.geometry || !place.address_components) return;
+
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
+
+          let streetAddress = "";
+          let city = "";
+          let state = "";
+          let zipCode = "";
+
+          place.address_components.forEach((component) => {
+            const types = component.types;
+            if (types.includes("street_number")) streetAddress = component.long_name + " " + streetAddress;
+            if (types.includes("route")) streetAddress += component.long_name;
+            if (types.includes("locality") || types.includes("sublocality") || types.includes("administrative_area_level_2")) {
+              if (!city) city = component.long_name;
+            }
+            if (types.includes("administrative_area_level_1")) state = component.long_name;
+            if (types.includes("postal_code")) zipCode = component.long_name;
+          });
+
+          if (!streetAddress) streetAddress = place.formatted_address.split(",")[0];
+
+          setFormData((prev) => ({
+            ...prev,
+            address: streetAddress || prev.address,
+            city: city || prev.city,
+            state: state || prev.state,
+            zipCode: zipCode || prev.zipCode,
+            latitude: lat,
+            longitude: lng,
+          }));
+        });
+      };
+
+      // Initialize with default (Pakistan) first
+      initAutocomplete(detectedCountryCode);
+      fetchStatesForCountry(detectedCountryName);
+
+      // Attempt device location detection (HTML5 Geolocation)
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            // Reverse Geocode the coordinates to find the country and local details
+            const geocoder = new window.google.maps.Geocoder();
+            geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+              if (status === "OK" && results[0]) {
+                let countryCode = "";
+                let countryName = "";
+                let city = "";
+                let state = "";
+                let streetAddress = "";
+                let zipCode = "";
+
+                results[0].address_components.forEach((component) => {
+                  const types = component.types;
+                  if (types.includes("country")) {
+                    countryCode = component.short_name.toLowerCase();
+                    countryName = component.long_name;
+                  }
+                  if (types.includes("locality") || types.includes("sublocality") || types.includes("administrative_area_level_2")) {
+                    if (!city) city = component.long_name;
+                  }
+                  if (types.includes("administrative_area_level_1")) {
+                    state = component.long_name;
+                  }
+                  if (types.includes("postal_code")) {
+                    zipCode = component.long_name;
+                  }
+                });
+
+                streetAddress = results[0].formatted_address.split(",")[0];
+
+                if (countryCode) {
+                  detectedCountryCode = countryCode;
+                  detectedCountryName = countryName;
+
+                  // Update autocomplete and fetch provinces for their active country!
+                  initAutocomplete(detectedCountryCode);
+                  fetchStatesForCountry(detectedCountryName);
+
+                  // Auto-populate detected location fields
+                  setFormData((prev) => ({
+                    ...prev,
+                    address: streetAddress || prev.address,
+                    city: city || prev.city,
+                    state: state || prev.state,
+                    zipCode: zipCode || prev.zipCode,
+                    latitude: lat,
+                    longitude: lng,
+                  }));
+                }
+              }
+            });
+          },
+          (error) => {
+            console.log("Device Geolocation permission denied or unavailable. Using default (Pakistan) settings.");
+          }
+        );
+      }
+    }).catch((err) => {
+      console.error("Error loading Google Maps APIs:", err);
+    });
+
+    return () => {
+      if (autocomplete && window.google) {
+        window.google.maps.event.clearInstanceListeners(autocomplete);
+      }
+    };
+  }, [step]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -105,71 +305,31 @@ const HospitalRegister = () => {
     setIsLoading(true);
 
     try {
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      const userData = {
         email: formData.email,
         password: formData.password,
-      });
+        full_name: formData.hospitalName, // Maps to users.full_name
+        phone: formData.phone,           // Maps to users.phone
+        role: 'hospital',
+        // Hospital profile data
+        hospital_name: formData.hospitalName,
+        license_number: formData.registrationNumber,
+        hospital_type: formData.hospitalType,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zip_code: formData.zipCode,
+        contact_person: formData.contactPerson,
+        contact_person_role: formData.contactPersonRole,
+        emergency_contact: formData.emergencyContact,
+        bed_capacity: parseInt(formData.bedCapacity) || 0,
+        icu_capacity: parseInt(formData.icuCapacity) || 0,
+      };
 
-      if (signUpError) {
-        setError(signUpError.message);
-        setIsLoading(false);
-        return;
-      }
+      const { error: registerError } = await signUp(userData);
 
-      let userId = signUpData.user?.id;
-
-      if (!signUpData.session) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
-
-        if (signInError) {
-          setError(t('hospitalRegister.checkEmail'));
-          setIsLoading(false);
-          if (!signUpData.user?.id) {
-            return;
-          }
-          userId = signUpData.user.id;
-        } else {
-          userId = signInData.user?.id;
-        }
-      }
-
-      if (!userId) {
-        setError(t('hospitalRegister.failedSession'));
-        setIsLoading(false);
-        return;
-      }
-
-      const { error: hospitalError } = await supabase
-        .from('hospitals')
-        .insert([
-          {
-            id: userId,
-            hospital_name: formData.hospitalName,
-            registration_number: formData.registrationNumber,
-            email: formData.email,
-            phone: formData.phone,
-            hospital_type: formData.hospitalType,
-            address: formData.address,
-            city: formData.city,
-            state: formData.state,
-            zip_code: formData.zipCode,
-            contact_person: formData.contactPerson,
-            contact_person_role: formData.contactPersonRole,
-            emergency_contact: formData.emergencyContact,
-            bed_capacity: parseInt(formData.bedCapacity) || 0,
-            icu_capacity: parseInt(formData.icuCapacity) || 0,
-            status: 'pending_verification'
-          }
-        ]);
-
-      if (hospitalError) {
-        console.error('Hospital creation error:', hospitalError);
-        setError(t('hospitalRegister.saveError'));
+      if (registerError) {
+        setError(registerError.message || t('hospitalRegister.unexpectedError'));
         setIsLoading(false);
         return;
       }
@@ -401,7 +561,7 @@ const HospitalRegister = () => {
                             <SelectValue placeholder={t('hospitalRegister.selectState')} />
                           </SelectTrigger>
                           <SelectContent>
-                            {states.map((state) => (
+                            {dynamicStates.map((state) => (
                               <SelectItem key={state} value={state}>{state}</SelectItem>
                             ))}
                           </SelectContent>

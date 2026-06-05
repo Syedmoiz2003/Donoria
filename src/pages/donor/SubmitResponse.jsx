@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
-import allRequests from "@/data/requests";
+import { donorApi } from "@/lib/api";
 import {
   Heart,
   ArrowLeft,
@@ -24,6 +25,9 @@ import {
   HandHeart,
   ChevronRight,
   Star,
+  FileText,
+  Upload,
+  Loader2,
 } from "lucide-react";
 
 export default function SubmitResponse() {
@@ -33,11 +37,52 @@ export default function SubmitResponse() {
   const [consent, setConsent] = useState(false);
   const [availability, setAvailability] = useState("");
   const [message, setMessage] = useState("");
-  const [step, setStep] = useState(1); // 1 = form, 2 = confirm, 3 = success
+  const [step, setStep] = useState(1); // 1 = info/availability, 2 = legal (for organ), 3 = confirm, 4 = success
   const [agreeHealth, setAgreeHealth] = useState(false);
+  const [legalFile, setLegalFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const requestData = allRequests.find((r) => r.id === parseInt(id)) || allRequests[0];
-  const isOrgan = requestData.type === "organ";
+  const [requestData, setRequestData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadRequest = async () => {
+      try {
+        const res = await donorApi.getRequest(id);
+        const req = res.request;
+        setRequestData({
+          id: req.id,
+          hospital: req.hospitals?.hospital_name || "Hospital",
+          type: req.request_type,
+          bloodType: (req.blood_group || "") + (req.rh_factor || ""),
+          organType: req.organ_type || "",
+          units: req.quantity || 1,
+          urgency: req.urgency_level || "high",
+          verified: req.hospitals?.is_verified,
+          distance: "2 km away",
+          time: "10 mins",
+          postedBy: "Hospital Staff",
+          phone: req.hospitals?.emergency_contact || "N/A",
+          email: req.hospitals?.users?.email || "N/A",
+          address: req.hospitals?.address || "N/A",
+          compatibility: 100,
+          requirements: [
+            "Must be feeling well today",
+            "Bring a valid ID",
+            "Eat a healthy meal before donation"
+          ],
+          recipientAge: "N/A"
+        });
+      } catch (err) {
+        console.error("Failed to load request", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadRequest();
+  }, [id]);
+
+  const isOrgan = requestData?.type === "organ";
 
   const availabilityOptions = [
     { label: "Today", sublabel: "Available now", icon: "⚡" },
@@ -46,17 +91,55 @@ export default function SubmitResponse() {
     { label: "Flexible", sublabel: "Coordinate later", icon: "🤝" },
   ];
 
-  const handleNext = () => {
-    if (step === 1 && availability) setStep(2);
-    else if (step === 2 && consent && agreeHealth) setStep(3);
+  const handleNext = async () => {
+    if (step === 1 && availability) {
+      if (isOrgan) {
+        setStep(2); // Go to legal upload for organ
+      } else {
+        setStep(3); // Go to confirmation for blood
+      }
+    } else if (step === 2 && isOrgan && legalFile) {
+      setStep(3);
+    } else if (step === 3 && consent && agreeHealth) {
+      try {
+        setIsSubmitting(true);
+        const formData = new FormData();
+        formData.append('request_id', id);
+        formData.append('message', message ? `Availability: ${availability}. ${message}` : `Availability: ${availability}`);
+        formData.append('estimated_arrival', new Date().toISOString());
+        
+        if (isOrgan && legalFile) {
+          formData.append('document', legalFile);
+          formData.append('document_type', 'Legal Consent');
+          formData.append('document_name', `Organ Donation Consent - ${requestData.hospital}`);
+        }
+
+        await donorApi.submitResponse(formData);
+        setStep(4);
+      } catch (err) {
+        console.error(err);
+        alert(err.message || "Failed to submit response");
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
   };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (!requestData) return <div className="min-h-screen flex items-center justify-center">Request not found.</div>;
 
   const handleBack = () => {
-    if (step > 1) setStep(step - 1);
+    if (step > 1) {
+      if (step === 3 && !isOrgan) {
+        setStep(1);
+      } else {
+        setStep(step - 1);
+      }
+    }
   };
 
-  // ─── Step 3: Success ───
-  if (step === 3) {
+  // ─── Step 4: Success ───
+  if (step === 4) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-lg w-full text-center">
@@ -153,27 +236,37 @@ export default function SubmitResponse() {
       {/* Progress Steps */}
       <div className="container mx-auto px-4 py-4 max-w-3xl">
         <div className="flex items-center justify-center gap-2 mb-8">
-          {["Your Availability", "Confirm & Submit"].map((label, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                step > i + 1
-                  ? "bg-success text-white"
-                  : step === i + 1
-                  ? "bg-primary text-white shadow-lg shadow-primary/30"
-                  : "bg-muted text-muted-foreground"
-              }`}>
-                {step > i + 1 ? <CheckCircle className="w-5 h-5" /> : i + 1}
+          {[
+            { label: "Availability", show: true },
+            { label: "Legal Docs", show: isOrgan },
+            { label: "Confirm & Submit", show: true }
+          ].filter(s => s.show).map((s, i, arr) => {
+            const actualStep = isOrgan ? (i + 1) : (i === 0 ? 1 : 3);
+            const isCurrent = step === actualStep;
+            const isDone = step > actualStep;
+            
+            return (
+              <div key={i} className="flex items-center gap-2">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                  isDone
+                    ? "bg-success text-white"
+                    : isCurrent
+                    ? "bg-primary text-white shadow-lg shadow-primary/30"
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  {isDone ? <CheckCircle className="w-5 h-5" /> : (i + 1)}
+                </div>
+                <span className={`text-sm font-medium hidden sm:block ${
+                  isCurrent ? "text-foreground" : "text-muted-foreground"
+                }`}>
+                  {s.label}
+                </span>
+                {i < arr.length - 1 && (
+                  <div className={`w-16 h-0.5 mx-2 rounded-full ${isDone ? "bg-success" : "bg-muted"}`} />
+                )}
               </div>
-              <span className={`text-sm font-medium hidden sm:block ${
-                step === i + 1 ? "text-foreground" : "text-muted-foreground"
-              }`}>
-                {label}
-              </span>
-              {i < 1 && (
-                <div className={`w-16 h-0.5 mx-2 rounded-full ${step > i + 1 ? "bg-success" : "bg-muted"}`} />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -303,8 +396,70 @@ export default function SubmitResponse() {
           </div>
         )}
 
-        {/* ─── Step 2: Confirm ─── */}
-        {step === 2 && (
+        {/* ─── Step 2: Legal Documents (Organ Only) ─── */}
+        {step === 2 && isOrgan && (
+          <div className="space-y-6 fade-in">
+            <div className="healthcare-card !p-6">
+              <h2 className="text-lg font-bold text-foreground mb-1">Legal Documentation</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Organ donation requires legal consent and identification. Please upload the necessary documents (PDF or Image).
+              </p>
+
+              <div className="border-2 border-dashed border-border rounded-2xl p-8 text-center hover:border-primary/50 transition-colors bg-muted/20">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <FileText className="w-8 h-8 text-primary" />
+                </div>
+                
+                {legalFile ? (
+                  <div className="mb-4">
+                    <p className="font-semibold text-foreground">{legalFile.name}</p>
+                    <p className="text-xs text-muted-foreground">{(legalFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <Button variant="ghost" size="sm" onClick={() => setLegalFile(null)} className="mt-2 text-destructive">
+                      Remove File
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="font-semibold text-foreground mb-1">Upload Consent Form / ID</p>
+                    <p className="text-xs text-muted-foreground mb-6">PDF, PNG or JPG (max 5MB)</p>
+                    <label>
+                      <Input 
+                        type="file" 
+                        className="hidden" 
+                        accept=".pdf,image/*" 
+                        onChange={(e) => setLegalFile(e.target.files[0])}
+                      />
+                      <Button variant="outline" className="gap-2 pointer-events-none">
+                        <Upload className="w-4 h-4" />
+                        Select File
+                      </Button>
+                    </label>
+                  </>
+                )}
+              </div>
+
+              <div className="mt-6 p-4 bg-warning/5 border border-warning/20 rounded-xl flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+                <p className="text-sm text-muted-foreground">
+                  Your legal documents are required to verify the donation process. These will be reviewed by the hospital and admin team only.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full"
+              disabled={!legalFile}
+              onClick={handleNext}
+            >
+              Continue to Confirmation
+              <ChevronRight className="w-5 h-5 ml-1" />
+            </Button>
+          </div>
+        )}
+
+        {/* ─── Step 3: Confirm ─── */}
+        {step === 3 && (
           <div className="space-y-6 fade-in">
             {/* Summary */}
             <div className="healthcare-card !p-6">
@@ -339,6 +494,15 @@ export default function SubmitResponse() {
                   <span className="text-sm text-muted-foreground">Your Availability</span>
                   <span className="text-sm font-medium text-primary">{availability}</span>
                 </div>
+                {isOrgan && legalFile && (
+                  <div className="flex justify-between items-center py-2 border-b border-border">
+                    <span className="text-sm text-muted-foreground">Legal Document</span>
+                    <span className="text-sm font-medium text-success flex items-center gap-1">
+                      <FileText className="w-4 h-4" />
+                      {legalFile.name}
+                    </span>
+                  </div>
+                )}
                 {message && (
                   <div className="py-2 border-b border-border">
                     <span className="text-sm text-muted-foreground block mb-1">Your Message</span>
@@ -399,10 +563,14 @@ export default function SubmitResponse() {
               variant="emergency"
               size="lg"
               className="w-full text-lg py-6"
-              disabled={!consent || !agreeHealth}
+              disabled={!consent || !agreeHealth || isSubmitting}
               onClick={handleNext}
             >
-              <Heart className="w-6 h-6 mr-2" />
+              {isSubmitting ? (
+                <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+              ) : (
+                <Heart className="w-6 h-6 mr-2" />
+              )}
               Submit Response & Save a Life
             </Button>
 

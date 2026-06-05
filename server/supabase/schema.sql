@@ -9,6 +9,7 @@ CREATE TABLE users (
   full_name VARCHAR(255) NOT NULL,
   phone VARCHAR(20),
   role VARCHAR(20) NOT NULL CHECK (role IN ('donor', 'hospital', 'admin')),
+  preferred_language VARCHAR(5) DEFAULT 'en',
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -39,7 +40,7 @@ CREATE TABLE hospitals (
 CREATE TABLE donors (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  blood_group CHAR(1) NOT NULL CHECK (blood_group IN ('A', 'B', 'AB', 'O')),
+  blood_group VARCHAR(3) NOT NULL CHECK (blood_group IN ('A', 'B', 'AB', 'O')),
   rh_factor CHAR(1) NOT NULL CHECK (rh_factor IN ('+', '-')),
   date_of_birth DATE NOT NULL,
   gender VARCHAR(20) NOT NULL CHECK (gender IN ('male', 'female', 'other')),
@@ -74,7 +75,7 @@ CREATE TABLE donation_requests (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   hospital_id UUID REFERENCES hospitals(id) ON DELETE CASCADE,
   request_type VARCHAR(20) NOT NULL CHECK (request_type IN ('blood', 'organ')),
-  blood_group CHAR(1) CHECK (blood_group IN ('A', 'B', 'AB', 'O')),
+  blood_group VARCHAR(3) CHECK (blood_group IN ('A', 'B', 'AB', 'O')),
   rh_factor CHAR(1) CHECK (rh_factor IN ('+', '-')),
   organ_type VARCHAR(100),
   urgency_level VARCHAR(20) NOT NULL CHECK (urgency_level IN ('low', 'medium', 'high', 'critical')),
@@ -82,7 +83,18 @@ CREATE TABLE donation_requests (
   unit VARCHAR(20) DEFAULT 'units',
   deadline TIMESTAMP WITH TIME ZONE NOT NULL,
   description TEXT,
-  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'fulfilled', 'expired', 'cancelled')),
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('pending', 'active', 'fulfilled', 'expired', 'cancelled')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Feedbacks table
+CREATE TABLE feedbacks (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  type VARCHAR(20) NOT NULL CHECK (type IN ('bug', 'suggestion', 'complaint')),
+  text TEXT NOT NULL,
+  status VARCHAR(20) DEFAULT 'unread' CHECK (status IN ('unread', 'read', 'resolved')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -96,6 +108,7 @@ CREATE TABLE donor_responses (
   status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'completed', 'cancelled')),
   message TEXT,
   estimated_arrival TIMESTAMP WITH TIME ZONE,
+  document_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(donor_id, request_id)
@@ -105,6 +118,8 @@ CREATE TABLE donor_responses (
 CREATE TABLE verification_documents (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   hospital_id UUID REFERENCES hospitals(id) ON DELETE CASCADE,
+  donor_id UUID REFERENCES donors(id) ON DELETE CASCADE,
+  response_id UUID REFERENCES donor_responses(id) ON DELETE CASCADE,
   document_type VARCHAR(50) NOT NULL,
   document_name VARCHAR(255) NOT NULL,
   file_url TEXT NOT NULL,
@@ -152,13 +167,40 @@ CREATE INDEX idx_donor_responses_donor_id ON donor_responses(donor_id);
 CREATE INDEX idx_donor_responses_request_id ON donor_responses(request_id);
 CREATE INDEX idx_donor_responses_status ON donor_responses(status);
 CREATE INDEX idx_verification_documents_hospital_id ON verification_documents(hospital_id);
+CREATE INDEX idx_verification_documents_donor_id ON verification_documents(donor_id);
+CREATE INDEX idx_verification_documents_response_id ON verification_documents(response_id);
 CREATE INDEX idx_verification_documents_status ON verification_documents(status);
+
+-- Hospital Inventory table
+CREATE TABLE IF NOT EXISTS hospital_inventory (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    hospital_id UUID REFERENCES hospitals(id) ON DELETE CASCADE,
+    blood_group VARCHAR(3) NOT NULL
+        CHECK (blood_group IN ('A', 'B', 'AB', 'O')),
+    rh_factor CHAR(1) NOT NULL
+        CHECK (rh_factor IN ('+', '-')),
+    quantity INTEGER DEFAULT 0,
+    last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(hospital_id, blood_group, rh_factor)
+);
+
+CREATE INDEX IF NOT EXISTS idx_hospital_inventory_hospital ON hospital_inventory(hospital_id);
+CREATE INDEX IF NOT EXISTS idx_hospital_inventory_blood ON hospital_inventory(blood_group, rh_factor);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Function to update last_updated column
+CREATE OR REPLACE FUNCTION update_last_updated_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.last_updated = NOW();
   RETURN NEW;
 END;
 $$ language 'plpgsql';
@@ -188,6 +230,9 @@ CREATE TRIGGER update_verification_documents_updated_at BEFORE UPDATE ON verific
 CREATE TRIGGER update_chat_sessions_updated_at BEFORE UPDATE ON chat_sessions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_hospital_inventory_last_updated BEFORE UPDATE ON hospital_inventory
+    FOR EACH ROW EXECUTE FUNCTION update_last_updated_column();
+
 -- Row Level Security (RLS) policies
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hospitals ENABLE ROW LEVEL SECURITY;
@@ -198,6 +243,7 @@ ALTER TABLE donor_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE verification_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hospital_inventory ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
 CREATE POLICY "Users can view own profile" ON users
@@ -349,3 +395,24 @@ CREATE POLICY "Users can create chat messages" ON chat_messages
       SELECT id FROM chat_sessions WHERE user_id = auth.uid()
     )
   );
+
+-- Hospital Inventory policies
+CREATE POLICY "Hospitals can view own inventory" ON hospital_inventory
+    FOR SELECT USING (
+        hospital_id IN (SELECT id FROM hospitals WHERE user_id = auth.uid())
+    );
+
+CREATE POLICY "Hospitals can manage own inventory" ON hospital_inventory
+    FOR ALL USING (
+        hospital_id IN (SELECT id FROM hospitals WHERE user_id = auth.uid())
+    );
+
+CREATE POLICY "Admins can view all inventory" ON hospital_inventory
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM admins WHERE admins.user_id = auth.uid())
+    );
+
+CREATE POLICY "Donors can view hospital inventory" ON hospital_inventory
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM donors WHERE donors.user_id = auth.uid())
+    );

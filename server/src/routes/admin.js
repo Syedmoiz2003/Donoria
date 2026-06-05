@@ -6,6 +6,7 @@ import { Donor } from '../models/Donor.js';
 import { VerificationDocument } from '../models/VerificationDocument.js';
 import { DonationRequest } from '../models/DonationRequest.js';
 import { NotificationService } from '../services/NotificationService.js';
+import { Feedback } from '../models/Feedback.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import config from '../config/index.js';
 
@@ -71,7 +72,8 @@ router.get('/hospitals', authenticate, authorize('admin'), async (req, res, next
 
 router.put('/hospitals/:id/verify', authenticate, authorize('admin'), async (req, res, next) => {
   try {
-    const hospital = await Hospital.verify(req.params.id);
+    await Hospital.verify(req.params.id);
+    const hospital = await Hospital.findById(req.params.id);
     await NotificationService.sendHospitalVerificationNotification(hospital, 'approved');
     
     res.json({
@@ -92,6 +94,18 @@ router.put('/hospitals/:id/reject', authenticate, authorize('admin'), async (req
     res.json({
       message: 'Hospital verification rejected',
       hospital,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/requests/:id/approve', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const request = await DonationRequest.updateStatus(req.params.id, 'active');
+    res.json({
+      message: 'Donation request approved and activated',
+      request,
     });
   } catch (error) {
     next(error);
@@ -180,6 +194,34 @@ router.get('/analytics', authenticate, authorize('admin'), async (req, res, next
       bloodGroupDistribution: bloodGroups,
       urgencyDistribution: urgencyLevels,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Feedback Management
+router.get('/feedback', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const feedback = await Feedback.list();
+    res.json(feedback);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/feedback/:id/resolve', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const feedback = await Feedback.updateStatus(req.params.id, 'resolved');
+    res.json(feedback);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/feedback/:id', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    await Feedback.delete(req.params.id);
+    res.json({ message: 'Feedback deleted successfully' });
   } catch (error) {
     next(error);
   }

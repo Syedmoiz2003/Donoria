@@ -85,9 +85,9 @@ const HowItWorks = () => {
       description: t('step.registerDesc'),
       color: "bg-primary",
       details: [
-        "Fill out your medical history",
-        "Verify your identity",
-        "Set your availability preferences"
+        t('step.register.detail1'),
+        t('step.register.detail2'),
+        t('step.register.detail3')
       ]
     },
     {
@@ -96,9 +96,9 @@ const HowItWorks = () => {
       description: t('step.matchDesc'),
       color: "bg-secondary",
       details: [
-        "Real-time matching algorithm",
-        "Location-based filtering",
-        "Emergency priority system"
+        t('step.match.detail1'),
+        t('step.match.detail2'),
+        t('step.match.detail3')
       ]
     },
     {
@@ -107,9 +107,9 @@ const HowItWorks = () => {
       description: t('step.respondDesc'),
       color: "bg-accent",
       details: [
-        "Instant notifications",
-        "One-tap confirmation",
-        "Real-time tracking"
+        t('step.respond.detail1'),
+        t('step.respond.detail2'),
+        t('step.respond.detail3')
       ]
     },
     {
@@ -118,9 +118,9 @@ const HowItWorks = () => {
       description: t('step.donateDesc'),
       color: "bg-destructive",
       details: [
-        "Scheduled appointments",
-        "Professional medical staff",
-        "Post-donation care"
+        t('step.donate.detail1'),
+        t('step.donate.detail2'),
+        t('step.donate.detail3')
       ]
     },
   ];

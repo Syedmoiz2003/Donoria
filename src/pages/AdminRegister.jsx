@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   Shield, 
   ArrowLeft, 
@@ -18,7 +19,8 @@ import {
   FileText,
   Building2,
   Settings,
-  Users
+  Users,
+  Loader2
 } from "lucide-react";
 import {
   Select,
@@ -35,8 +37,12 @@ const states = [
 
 const AdminRegister = () => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const { signUp } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const adminTypes = [
     t('adminRegister.typeSystem'),
@@ -67,17 +73,67 @@ const AdminRegister = () => {
     certifications: "",
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
+
     if (step === 1) {
+      if (!formData.fullName || !formData.email || !formData.password || !formData.adminType) {
+        setError(t('common.fillRequiredFields') || "Please fill all required fields");
+        return;
+      }
       setStep(2);
-    } else if (step === 2) {
+      return;
+    } 
+    
+    if (step === 2) {
+      if (!formData.organization || !formData.city) {
+        setError(t('common.fillRequiredFields') || "Please fill all required fields");
+        return;
+      }
       setStep(3);
-    } else {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const userData = {
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.fullName,
+        phone: formData.phone,
+        role: 'admin',
+        // Admin profile data
+        employee_id: formData.employeeId,
+        admin_type: formData.adminType,
+        department: formData.department,
+        organization: formData.organization,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zip_code: formData.zipCode,
+        supervisor_name: formData.supervisorName,
+        supervisor_email: formData.supervisorEmail,
+        access_level: formData.accessLevel,
+        years_of_experience: parseInt(formData.yearsOfExperience) || 0,
+        certifications: formData.certifications,
+      };
+
+      const { error: signUpError } = await signUp(userData);
+
+      if (signUpError) {
+        setError(signUpError.message || "Registration failed");
+        setIsLoading(false);
+        return;
+      }
+
       alert(t('adminRegister.success'));
-      setTimeout(() => {
-        window.location.href = "/admin/dashboard";
-      }, 2000);
+      navigate("/admin/dashboard");
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -462,6 +518,12 @@ const AdminRegister = () => {
                 </>
               )}
 
+              {error && (
+                <div className="p-3 text-sm text-red-500 bg-red-100 rounded-md border border-red-200">
+                  {error}
+                </div>
+              )}
+
               <div className="flex gap-4 pt-4">
                 {step > 1 && (
                   <Button
@@ -469,12 +531,20 @@ const AdminRegister = () => {
                     variant="outline"
                     onClick={() => setStep(step - 1)}
                     className="flex-1"
+                    disabled={isLoading}
                   >
                     {t('adminRegister.previous')}
                   </Button>
                 )}
-                <Button type="submit" className="flex-1">
-                  {step === 3 ? t('adminRegister.completeRegistration') : t('adminRegister.nextStep')}
+                <Button type="submit" className="flex-1" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {t('common.processing') || "Processing..."}
+                    </>
+                  ) : (
+                    step === 3 ? t('adminRegister.completeRegistration') : t('adminRegister.nextStep')
+                  )}
                 </Button>
               </div>
             </form>

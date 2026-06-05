@@ -16,12 +16,13 @@ class ApiClient {
   }
 
   getHeaders() {
+    const token = localStorage.getItem('token');
     const headers = {
       'Content-Type': 'application/json',
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     return headers;
@@ -42,7 +43,8 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || data.message || 'Request failed');
+        const errMsg = data.error || data.message || (data.errors && data.errors.map(e => e.msg).join(', ')) || 'Request failed';
+        throw new Error(errMsg);
       }
 
       return data;
@@ -112,7 +114,7 @@ const api = new ApiClient();
 // Auth API
 export const authApi = {
   register: (userData) => api.post('/auth/register', userData),
-  login: (email, password) => api.post('/auth/login', { email, password }),
+  login: (email, password, role) => api.post('/auth/login', { email, password, role }),
   getProfile: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
   logout: () => api.post('/auth/logout'),
@@ -132,6 +134,8 @@ export const hospitalApi = {
   updateRequest: (id, data) => api.put(`/hospitals/requests/${id}`, data),
   deleteRequest: (id) => api.delete(`/hospitals/requests/${id}`),
   getResponses: () => api.get('/hospitals/responses'),
+  getInventory: () => api.get('/hospitals/inventory'),
+  updateInventory: (data) => api.put('/hospitals/inventory', data),
 };
 
 // Donor API
@@ -143,6 +147,8 @@ export const donorApi = {
   getEligibility: () => api.get('/donors/me/eligibility'),
   getRequests: (filters) => api.get('/donors/requests', filters),
   getRequest: (id) => api.get(`/donors/requests/${id}`),
+  uploadDocument: (formData) => api.upload('/donors/documents', formData),
+  getDocuments: () => api.get('/donors/documents'),
   submitResponse: (data) => api.post('/donors/responses', data),
   getResponses: () => api.get('/donors/responses'),
   getResponse: (id) => api.get(`/donors/responses/${id}`),
@@ -184,8 +190,16 @@ export const adminApi = {
   getDocuments: () => api.get('/admin/documents'),
   approveDocument: (id) => api.put(`/admin/documents/${id}/approve`),
   rejectDocument: (id, reason) => api.put(`/admin/documents/${id}/reject`, { rejection_reason: reason }),
+  approveRequest: (id) => api.put(`/admin/requests/${id}/approve`),
   getReports: (type, startDate, endDate) => api.get('/admin/reports', { type, start_date: startDate, end_date: endDate }),
   getAnalytics: () => api.get('/admin/analytics'),
+  getFeedback: () => api.get('/admin/feedback'),
+  resolveFeedback: (id) => api.put(`/admin/feedback/${id}/resolve`),
+  deleteFeedback: (id) => api.delete(`/admin/feedback/${id}`),
+};
+
+export const feedbackApi = {
+  submit: (data) => api.post('/feedback', data),
 };
 
 export default api;

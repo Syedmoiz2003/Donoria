@@ -1,14 +1,16 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ArrowLeft, Building2, Save, FileSpreadsheet, Plus, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { hospitalApi } from "@/lib/api";
 
 const PostRequest = () => {
   const { t, language } = useLanguage();
   const isRtl = language === 'ur';
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -19,13 +21,34 @@ const PostRequest = () => {
     urgency: "critical",
     recipientAge: "",
     description: "",
+    deadlineDays: "7"
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      const bloodGroupMatch = formData.bloodType.match(/([ABO]+)([\+\-])/);
+      const bloodGroup = bloodGroupMatch ? bloodGroupMatch[1] : 'O';
+      const rhFactor = bloodGroupMatch ? bloodGroupMatch[2] : '+';
+
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + parseInt(formData.deadlineDays || 7));
+
+      const payload = {
+        request_type: formData.type,
+        blood_group: formData.type === 'blood' ? bloodGroup : undefined,
+        rh_factor: formData.type === 'blood' ? rhFactor : undefined,
+        organ_type: formData.type === 'organ' ? formData.organType : undefined,
+        urgency_level: formData.urgency,
+        quantity: parseInt(formData.units) || 1,
+        deadline: deadline.toISOString(),
+        description: `Age: ${formData.recipientAge}\n${formData.description}`
+      };
+
+      await hospitalApi.createRequest(payload);
+      
       toast.success(isRtl ? "درخواست کامیابی سے براڈکاسٹ کر دی گئی ہے!" : "Case broadcasted to active donors successfully!");
       setFormData({
         type: "blood",
@@ -35,8 +58,15 @@ const PostRequest = () => {
         urgency: "critical",
         recipientAge: "",
         description: "",
+        deadlineDays: "7"
       });
-    }, 1000);
+      navigate("/hospital/dashboard");
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Failed to broadcast request.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

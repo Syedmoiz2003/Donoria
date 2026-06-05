@@ -14,19 +14,13 @@ const RegisterSelect = () => {
 
   useEffect(() => {
     if (user) {
-      const redirectLoggedInUser = async () => {
-        const { data: donor } = await supabase.from('donors').select('id').eq('id', user.id).maybeSingle();
-        if (donor) {
-          navigate("/donor/dashboard");
-          return;
-        }
-        const { data: hospital } = await supabase.from('hospitals').select('id').eq('id', user.id).maybeSingle();
-        if (hospital) {
-          navigate("/hospital/dashboard");
-          return;
-        }
-      };
-      redirectLoggedInUser();
+      if (user.role === 'donor') {
+        navigate("/donor/dashboard");
+      } else if (user.role === 'hospital') {
+        navigate("/hospital/dashboard");
+      } else if (user.role === 'admin') {
+        navigate("/admin/dashboard");
+      }
     }
   }, [user, navigate]);
 
@@ -74,10 +68,9 @@ const RegisterSelect = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Heart className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-xl">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center overflow-hidden">
+              <img src="/favicon.ico" alt="Donoria Logo" className="w-7 h-7 object-contain" />
+            </div>            <span className="font-bold text-xl">
               Donoria
             </span>
           </div>

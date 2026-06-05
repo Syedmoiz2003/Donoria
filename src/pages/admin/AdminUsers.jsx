@@ -1,37 +1,72 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ArrowLeft, Users, ShieldAlert, CheckCircle2, Ban, Search, Check } from "lucide-react";
+import { adminApi } from "@/lib/api";
+import { ArrowLeft, Users, ShieldAlert, CheckCircle2, Ban, Search, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-
-const mockUsers = [
-  { id: 1, name: "John Doe", email: "john@example.com", role: "donor", status: "active", region: "Islamabad" },
-  { id: 2, name: "City General Hospital", email: "city@example.com", role: "hospital", status: "active", region: "Lahore" },
-  { id: 3, name: "Ayesha Malik", email: "ayesha@example.com", role: "donor", status: "active", region: "Karachi" },
-  { id: 4, name: "Metro Health Clinic", email: "metro@example.com", role: "hospital", status: "pending", region: "Rawalpindi" },
-  { id: 5, name: "Zainab Bibi", email: "zainab@example.com", role: "donor", status: "blocked", region: "Peshawar" },
-];
 
 const AdminUsers = () => {
   const { t, language } = useLanguage();
   const isRtl = language === 'ur';
-  const [users, setUsers] = useState(mockUsers);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [actionLoading, setActionLoading] = useState(null);
 
-  const handleToggleStatus = (id, currentStatus) => {
-    let newStatus = currentStatus === "active" ? "blocked" : "active";
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, status: newStatus } : u));
-    toast.success(newStatus === "blocked" 
-      ? (isRtl ? "صارف کو کامیابی سے بلاک کر دیا گیا ہے۔" : "User blocked successfully!") 
-      : (isRtl ? "صارف کو کامیابی سے بحال کر دیا گیا ہے۔" : "User restored successfully!"));
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getUsers();
+      setUsers(data);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      toast.error(isRtl ? "صارفین لوڈ کرنے میں ناکامی" : "Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (id, isActive) => {
+    try {
+      setActionLoading(id);
+      if (isActive) {
+        await adminApi.suspendUser(id);
+        toast.success(isRtl ? "صارف کو کامیابی سے بلاک کر دیا گیا ہے۔" : "User suspended successfully!");
+      } else {
+        await adminApi.activateUser(id);
+        toast.success(isRtl ? "صارف کو کامیابی سے بحال کر دیا گیا ہے۔" : "User activated successfully!");
+      }
+      
+      // Update local state
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, is_active: !isActive } : u));
+    } catch (error) {
+      console.error("Action failed:", error);
+      toast.error(isRtl ? "کارروائی مکمل نہیں ہو سکی" : "Failed to update user status");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const filtered = users.filter(u => 
-    u.name.toLowerCase().includes(search.toLowerCase()) || 
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.region.toLowerCase().includes(search.toLowerCase())
+    u.role !== 'admin' && (
+      (u.full_name || "").toLowerCase().includes(search.toLowerCase()) || 
+      (u.email || "").toLowerCase().includes(search.toLowerCase()) ||
+      (u.role || "").toLowerCase().includes(search.toLowerCase())
+    )
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-12">
@@ -59,7 +94,7 @@ const AdminUsers = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder={isRtl ? "صارف کا نام، ای میل یا علاقہ تلاش کریں..." : "Search user by name, email or region..."}
+            placeholder={isRtl ? "صارف کا نام یا ای میل تلاش کریں..." : "Search user by name or email..."}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full h-11 pl-10 pr-4 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -75,46 +110,48 @@ const AdminUsers = () => {
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black ${
                     user.role === "hospital" ? "bg-secondary/10 text-secondary" : "bg-primary/10 text-primary"
                   }`}>
-                    {user.name.charAt(0)}
+                    {(user.full_name || "U").charAt(0)}
                   </div>
                   <div>
                     <h3 className="font-bold text-foreground flex items-center gap-2 flex-wrap">
-                      <span>{user.name}</span>
+                      <span>{user.full_name}</span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
                         user.role === "hospital" ? "bg-secondary/10 text-secondary" : "bg-primary/10 text-primary"
                       }`}>
                         {user.role}
                       </span>
                     </h3>
-                    <p className="text-xs text-muted-foreground">{user.email} • {user.region}</p>
+                    <p className="text-xs text-muted-foreground">{user.email} • {new Date(user.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                   <span className={`text-xs font-bold uppercase tracking-wider ${
-                    user.status === "active" ? "text-success" : "text-destructive"
+                    user.is_active ? "text-success" : "text-destructive"
                   }`}>
-                    {user.status}
+                    {user.is_active ? (isRtl ? "فعال" : "Active") : (isRtl ? "معطل" : "Suspended")}
                   </span>
                   
                   <Button 
-                    onClick={() => handleToggleStatus(user.id, user.status)} 
-                    variant={user.status === "active" ? "destructive" : "success"}
+                    onClick={() => handleToggleStatus(user.id, user.is_active)} 
+                    variant={user.is_active ? "destructive" : "success"}
                     size="sm"
                     className="ml-auto sm:ml-0 gap-1.5"
+                    disabled={actionLoading === user.id}
                   >
-                    {user.status === "active" ? (
-                      <>
-                        <Ban className="w-3.5 h-3.5" />
-                        <span>{isRtl ? "بلاک کریں" : "Suspend"}</span>
-                      </>
+                    {actionLoading === user.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : user.is_active ? (
+                      <Ban className="w-3.5 h-3.5" />
                     ) : (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>{isRtl ? "فعال کریں" : "Activate"}</span>
-                      </>
+                      <Check className="w-3.5 h-3.5" />
                     )}
+                    <span>
+                      {user.is_active 
+                        ? (isRtl ? "بلاک کریں" : "Suspend") 
+                        : (isRtl ? "فعال کریں" : "Activate")}
+                    </span>
                   </Button>
                 </div>
               </div>

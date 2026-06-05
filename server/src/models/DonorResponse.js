@@ -11,6 +11,7 @@ export class DonorResponse {
         status: 'pending',
         message: responseData.message,
         estimated_arrival: responseData.estimated_arrival,
+        document_url: responseData.document_url,
         created_at: new Date().toISOString(),
       }])
       .select()

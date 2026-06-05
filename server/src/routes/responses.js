@@ -62,7 +62,9 @@ router.put('/:id/accept', authenticate, authorize('hospital'), async (req, res, 
       return res.status(400).json({ error: 'Response is not in pending status' });
     }
 
-    const updated = await DonorResponse.acceptResponse(req.params.id);
+    await DonorResponse.acceptResponse(req.params.id);
+    // Re-fetch with full joins for notification
+    const updated = await DonorResponse.findById(req.params.id);
     await NotificationService.sendResponseAcceptedNotification(updated);
     
     res.json({
@@ -92,7 +94,9 @@ router.put('/:id/complete', authenticate, authorize('hospital'), async (req, res
       return res.status(400).json({ error: 'Response must be accepted before completing' });
     }
 
-    const updated = await DonorResponse.completeResponse(req.params.id);
+    await DonorResponse.completeResponse(req.params.id);
+    // Re-fetch with full joins for notification (completeResponse only returns flat data)
+    const updated = await DonorResponse.findById(req.params.id);
     await NotificationService.sendResponseCompletedNotification(updated);
     await Donor.updateLastDonationDate(response.donor_id);
     

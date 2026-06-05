@@ -12,7 +12,7 @@ export const registerValidation = [
   body('email').isEmail().withMessage('Valid email required'),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('full_name').trim().notEmpty().withMessage('Full name required'),
-  body('phone').isMobilePhone().withMessage('Valid phone number required'),
+  body('phone').trim().notEmpty().withMessage('Valid phone number required'),
   body('role').isIn(['donor', 'hospital', 'admin']).withMessage('Invalid role'),
 ];
 
@@ -52,7 +52,7 @@ export const donationRequestValidation = [
 ];
 
 export const donorResponseValidation = [
-  body('request_id').isInt().withMessage('Valid request ID required'),
+  body('request_id').isUUID().withMessage('Valid request ID required'),
   body('message').optional().trim().isLength({ max: 500 }).withMessage('Message too long'),
   body('estimated_arrival').optional().isISO8601().withMessage('Valid arrival time required'),
 ];

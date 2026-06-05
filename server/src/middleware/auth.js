@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
+import { TokenBlacklist } from '../services/TokenBlacklist.js';
 import config from '../config/index.js';
 
 export const authenticate = async (req, res, next) => {
@@ -8,6 +9,11 @@ export const authenticate = async (req, res, next) => {
 
     if (!token) {
       return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const isBlacklisted = await TokenBlacklist.isBlacklisted(token);
+    if (isBlacklisted) {
+      return res.status(401).json({ error: 'Token has been invalidated' });
     }
 
     const decoded = jwt.verify(token, config.jwt.secret);
@@ -38,10 +44,13 @@ export const optionalAuth = async (req, res, next) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
 
     if (token) {
-      const decoded = jwt.verify(token, config.jwt.secret);
-      const user = await User.findById(decoded.userId);
-      if (user && user.is_active) {
-        req.user = user;
+      const isBlacklisted = await TokenBlacklist.isBlacklisted(token);
+      if (!isBlacklisted) {
+        const decoded = jwt.verify(token, config.jwt.secret);
+        const user = await User.findById(decoded.userId);
+        if (user && user.is_active) {
+          req.user = user;
+        }
       }
     }
     next();

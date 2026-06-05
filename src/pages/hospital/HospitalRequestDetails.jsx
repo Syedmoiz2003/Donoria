@@ -1,7 +1,18 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { hospitalApi, responsesApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   UserCheck,
@@ -17,53 +28,110 @@ import {
   Building2,
   Bell,
   User,
+  Loader2,
+  Activity,
+  FileText,
+  Phone,
+  Mail,
+  XCircle,
+  LogOut,
+  Settings,
 } from "lucide-react";
 
 const HospitalRequestDetails = () => {
   const { t } = useLanguage();
-  const [request] = useState({
-    id: 1,
-    bloodType: "O-",
-    units: 3,
-    urgency: "critical",
-    responses: 5,
-    posted: "2 hours ago",
-    status: "active",
-    type: "blood",
-    hospital: "City General Hospital",
-    contact: "+1 (555) 123-4567",
-    location: "123 Main St, City, State",
-  });
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [request, setRequest] = useState(null);
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
 
-  const responses = [
-    {
-      id: 1,
-      donorName: "John Doe",
-      bloodType: "O+",
-      phone: "+1 (555) 987-6543",
-      distance: "2.5 km",
-      time: "15 min ago",
-      status: "available",
-    },
-    {
-      id: 2,
-      donorName: "Jane Smith",
-      bloodType: "O-",
-      phone: "+1 (555) 234-5678",
-      distance: "3.2 km",
-      time: "30 min ago",
-      status: "available",
-    },
-    {
-      id: 3,
-      donorName: "Mike Johnson",
-      bloodType: "O+",
-      phone: "+1 (555) 456-7890",
-      distance: "1.8 km",
-      time: "1 hour ago",
-      status: "available",
-    },
-  ];
+  // Handle scroll behavior
+  useEffect(() => {
+    const controlHeader = () => {
+      if (typeof window !== 'undefined') {
+        if (window.scrollY > lastScrollY && window.scrollY > 100) {
+          setIsVisible(false);
+        } else {
+          setIsVisible(true);
+        }
+        setLastScrollY(window.scrollY);
+      }
+    };
+
+    window.addEventListener('scroll', controlHeader);
+    return () => {
+      window.removeEventListener('scroll', controlHeader);
+    };
+  }, [lastScrollY]);
+
+  useEffect(() => {
+    loadRequestDetails();
+  }, [id]);
+
+  const loadRequestDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const data = await hospitalApi.getRequest(id);
+      setRequest(data);
+    } catch (err) {
+      console.error('Error loading request details:', err);
+      setError('Failed to load request details. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAcceptResponse = async (responseId) => {
+    try {
+      await responsesApi.accept(responseId);
+      toast.success('Response accepted! Donor has been notified.');
+      // Refresh request to update response statuses
+      await loadRequestDetails();
+    } catch (err) {
+      console.error('Failed to accept response:', err);
+      toast.error(err.message || 'Failed to accept response');
+    }
+  };
+
+  const handleRejectResponse = async (responseId) => {
+    try {
+      await responsesApi.reject(responseId);
+      toast.success('Response rejected.');
+      await loadRequestDetails();
+    } catch (err) {
+      console.error('Failed to reject response:', err);
+      toast.error(err.message || 'Failed to reject response');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !request) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-center">
+        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
+        <h2 className="text-xl font-bold mb-2">{error || 'Request not found'}</h2>
+        <Button asChild variant="outline">
+          <Link to="/hospital/dashboard">Back to Dashboard</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const responses = request.responses || [];
+  const bloodType = request.blood_group ? `${request.blood_group}${request.rh_factor}` : 'N/A';
 
   return (
     <div className="min-h-screen bg-background">
@@ -84,9 +152,39 @@ const HospitalRequestDetails = () => {
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-destructive" />
               </Button>
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="w-5 h-5 text-primary" />
-              </div>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full bg-muted/50 ml-2">
+                    <User className="w-5 h-5 text-primary" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="cursor-pointer flex items-center w-full">
+                      <User className="w-4 h-4 mr-2" />
+                      {t('navbar.editProfile') || 'Edit Profile'}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/hospital/settings" className="cursor-pointer flex items-center w-full">
+                      <Settings className="w-4 h-4 mr-2" />
+                      {t('navbar.settings') || 'Settings'}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={async () => {
+                      await signOut();
+                      navigate('/login');
+                    }} 
+                    className="text-destructive focus:text-destructive cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {t('navbar.signOut') || 'Sign Out'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -109,14 +207,14 @@ const HospitalRequestDetails = () => {
                 <h2 className="text-xl font-bold text-foreground">{t('hospitalRequestDetails.title')}</h2>
                 <div className="flex items-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    request.urgency === "critical" ? "bg-destructive text-destructive-foreground" :
-                    request.urgency === "high" ? "bg-orange-500 text-white" :
+                    request.urgency_level === "critical" ? "bg-destructive text-destructive-foreground" :
+                    request.urgency_level === "high" ? "bg-orange-500 text-white" :
                     "bg-yellow-500 text-white"
                   }`}>
-                    {request.posted}
+                    {request.urgency_level?.toUpperCase()}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    {request.urgency}
+                    {new Date(request.created_at).toLocaleDateString()}
                   </span>
                 </div>
               </div>
@@ -124,11 +222,13 @@ const HospitalRequestDetails = () => {
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Droplets className="w-5 h-5 text-primary" />
+                    {request.request_type === 'organ' ? <Heart className="w-5 h-5 text-primary" /> : <Droplets className="w-5 h-5 text-primary" />}
                   </div>
                   <div>
-                    <p className="font-medium text-foreground">{t('hospitalRequestDetails.bloodType')}: {request.bloodType}</p>
-                    <p className="text-sm text-muted-foreground">{t('hospitalRequestDetails.unitsNeeded')}: {request.units}</p>
+                    <p className="font-medium text-foreground">
+                      {request.request_type === 'organ' ? `Organ: ${request.organ_type}` : `Blood Type: ${bloodType}`}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{t('hospitalRequestDetails.unitsNeeded')}: {request.quantity} {request.unit}</p>
                   </div>
                 </div>
 
@@ -137,8 +237,8 @@ const HospitalRequestDetails = () => {
                     <Shield className="w-5 h-5 text-success" />
                   </div>
                   <div>
-                    <p className="font-medium text-foreground">{t('hospitalRequestDetails.hospital')}</p>
-                    <p className="text-sm text-muted-foreground">{request.hospital}</p>
+                    <p className="font-medium text-foreground">Status</p>
+                    <p className="text-sm text-muted-foreground uppercase">{request.status}</p>
                   </div>
                 </div>
 
@@ -147,18 +247,18 @@ const HospitalRequestDetails = () => {
                     <MapPin className="w-5 h-5 text-secondary" />
                   </div>
                   <div>
-                    <p className="font-medium text-foreground">{t('hospitalRequestDetails.location')}</p>
-                    <p className="text-sm text-muted-foreground">{request.location}</p>
+                    <p className="font-medium text-foreground">Deadline</p>
+                    <p className="text-sm text-muted-foreground">{new Date(request.deadline).toLocaleDateString()}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-muted/10 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-muted-foreground" />
+                    <FileText className="w-5 h-5 text-muted-foreground" />
                   </div>
                   <div>
-                    <p className="font-medium text-foreground">{t('hospitalRequestDetails.contact')}</p>
-                    <p className="text-sm text-muted-foreground">{request.contact}</p>
+                    <p className="font-medium text-foreground">Description</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{request.description || 'No description provided'}</p>
                   </div>
                 </div>
               </div>
@@ -175,12 +275,6 @@ const HospitalRequestDetails = () => {
                     {t('hospitalRequestDetails.editRequest')}
                   </Link>
                 </Button>
-                <Button variant="outline" className="w-full justify-start" asChild>
-                  <Link to={`/hospital/request/${request.id}/responses`}>
-                    <UserCheck className="w-4 h-4 mr-2" />
-                    {t('hospitalRequestDetails.viewResponses')}
-                  </Link>
-                </Button>
               </div>
             </div>
           </div>
@@ -189,60 +283,130 @@ const HospitalRequestDetails = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-foreground">{t('hospitalRequestDetails.donorResponses')} ({responses.length})</h2>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/hospital/responses">
-                {t('hospitalRequestDetails.viewAllResponses')}
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Link>
-            </Button>
           </div>
 
         <div className="grid gap-4">
-          {responses.map((response) => (
-            <div key={response.id} className="healthcare-card">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    response.status === "available" ? "bg-success/10" : "bg-muted/10"
-                  }`}>
-                    {response.status === "available" ? (
-                      <CheckCircle className="w-5 h-5 text-success" />
-                    ) : (
-                      <AlertTriangle className="w-5 h-5 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">{response.donorName}</p>
-                    <p className="text-sm text-muted-foreground">{response.bloodType}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm text-muted-foreground">{response.time}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Heart className="w-4 h-4 text-primary" />
-                  </div>
-                  <span className="text-sm text-muted-foreground">{response.distance}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm text-muted-foreground">{response.phone}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button variant="default" size="sm" className="flex-1">
-                  {t('hospitalRequestDetails.acceptResponse')}
-                </Button>
-                <Button variant="outline" size="sm">
-                  {t('hospitalRequestDetails.contactDonor')}
-                </Button>
-              </div>
+          {responses.length === 0 ? (
+            <div className="healthcare-card text-center py-12">
+              <p className="text-muted-foreground">No responses received yet.</p>
             </div>
-          ))}
+          ) : (
+            responses.map((response) => {
+              const donor = response.donors || {};
+              const donorUser = donor.users || {};
+              const donorBloodType = donor.blood_group ? `${donor.blood_group}${donor.rh_factor}` : 'N/A';
+              
+              return (
+                <div key={response.id} className="healthcare-card">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        response.status === "completed" ? "bg-success/10" : "bg-primary/10"
+                      }`}>
+                        {response.status === "completed" ? (
+                          <CheckCircle className="w-5 h-5 text-success" />
+                        ) : (
+                          <UserCheck className="w-5 h-5 text-primary" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">{donorUser.full_name || 'Anonymous Donor'}</p>
+                        <p className="text-sm text-muted-foreground">Blood Type: {donorBloodType}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm text-muted-foreground">{new Date(response.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Activity className="w-4 h-4 text-primary" />
+                      </div>
+                      <span className="text-sm text-muted-foreground">Compatibility: {response.compatibility_score}%</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm text-muted-foreground">{donorUser.phone || 'No phone'}</span>
+                    </div>
+                  </div>
+
+                  {response.message && (
+                    <div className="mb-4 p-3 bg-muted/30 rounded-lg text-sm italic">
+                      "{response.message}"
+                    </div>
+                  )}
+
+                  {response.document_url && (
+                    <div className="mb-4 flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+                      <FileText className="w-5 h-5 text-primary" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-foreground">Legal Documentation Attached</p>
+                        <p className="text-xs text-muted-foreground">Required for organ donation verification</p>
+                      </div>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={response.document_url} target="_blank" rel="noopener noreferrer">
+                          View Document
+                        </a>
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    {response.status === 'pending' && (
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={async () => {
+                          try {
+                            await responsesApi.accept(response.id);
+                            loadRequestDetails();
+                          } catch (err) {
+                            alert(err.message);
+                          }
+                        }}
+                      >
+                        {t('hospitalRequestDetails.acceptResponse')}
+                      </Button>
+                    )}
+                    {response.status === 'accepted' && (
+                      <Button 
+                        variant="success" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={async () => {
+                          try {
+                            await responsesApi.complete(response.id);
+                            loadRequestDetails();
+                          } catch (err) {
+                            alert(err.message);
+                          }
+                        }}
+                      >
+                        Mark Completed
+                      </Button>
+                    )}
+                    {response.status === 'completed' && (
+                      <Button variant="outline" size="sm" className="flex-1" disabled>
+                        Donation Completed
+                      </Button>
+                    )}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className={response.status === 'completed' ? "hidden" : ""}
+                      asChild
+                    >
+                      <Link to={`/hospital/response/${response.id}/contact`}>
+                        {t('hospitalRequestDetails.contactDonor')}
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
         </div>
       </main>

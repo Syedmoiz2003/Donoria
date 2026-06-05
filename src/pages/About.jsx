@@ -5,54 +5,6 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const stats = [
-  { label: "Lives Saved", value: "50,000+", icon: Heart },
-  { label: "Active Donors", value: "10,000+", icon: Users },
-  { label: "Partner Hospitals", value: "500+", icon: Shield },
-  { label: "Cities Covered", value: "100+", icon: Globe },
-];
-
-const values = [
-  {
-    icon: Heart,
-    title: "Save Lives",
-    description: "Every donation has the potential to save up to three lives. We're committed to connecting donors with those in critical need."
-  },
-  {
-    icon: Shield,
-    title: "Safety First",
-    description: "We maintain the highest standards of safety and privacy for both donors and recipients, following all medical guidelines."
-  },
-  {
-    icon: Users,
-    title: "Community Driven",
-    description: "We believe in the power of community. Our platform brings together compassionate individuals to make a collective impact."
-  },
-  {
-    icon: Target,
-    title: "Efficiency",
-    description: "Using advanced technology, we ensure that blood donations reach those who need them most in the shortest time possible."
-  },
-];
-
-const team = [
-  {
-    name: "Dr. Sarah Johnson",
-    role: "Medical Director",
-    description: "15+ years in transfusion medicine"
-  },
-  {
-    name: "Michael Chen",
-    role: "Technology Lead",
-    description: "Expert in healthcare AI systems"
-  },
-  {
-    name: "Emily Rodriguez",
-    role: "Community Manager",
-    description: "Passionate about donor engagement"
-  },
-];
-
 const About = () => {
   const { t } = useLanguage();
 
@@ -83,6 +35,24 @@ const About = () => {
       icon: Target,
       title: t('about.efficiency'),
       description: t('about.efficiencyDesc')
+    },
+  ];
+
+  const team = [
+    {
+      name: t('about.team.name1'),
+      role: t('about.team.role1'),
+      description: t('about.team.desc1')
+    },
+    {
+      name: t('about.team.name2'),
+      role: t('about.team.role2'),
+      description: t('about.team.desc2')
+    },
+    {
+      name: t('about.team.name3'),
+      role: t('about.team.role3'),
+      description: t('about.team.desc3')
     },
   ];
   return (

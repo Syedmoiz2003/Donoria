@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Heart, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
+import { Droplet, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const Footer = () => {
@@ -11,15 +11,15 @@ const Footer = () => {
           {/* Brand */}
           <div>
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <Heart className="w-6 h-6 text-primary-foreground" />
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground">
+                <Droplet className="w-7 h-7 fill-current" />
               </div>
               <span className="font-bold text-xl">
                 {t('home.brandName')}
               </span>
             </Link>
             <p className="text-background/70 text-sm mb-6">
-              Connecting donors with hospitals to save lives through secure, verified blood and organ donation coordination.
+              {t('footer.description')}
             </p>
             <div className="flex gap-3">
               <a href="#" className="w-10 h-10 rounded-lg bg-background/10 flex items-center justify-center hover:bg-primary transition-colors">
@@ -39,31 +39,31 @@ const Footer = () => {
 
           {/* Quick Links */}
           <div>
-            <h4 className="font-semibold text-lg mb-4">Quick Links</h4>
+            <h4 className="font-semibold text-lg mb-4">{t('footer.quickLinks')}</h4>
             <ul className="space-y-3">
               <li>
                 <Link to="/about" className="text-background/70 hover:text-primary transition-colors text-sm">
-                  About Us
+                  {t('nav.about')}
                 </Link>
               </li>
               <li>
                 <Link to="/how-it-works" className="text-background/70 hover:text-primary transition-colors text-sm">
-                  How It Works
+                  {t('nav.howItWorks')}
                 </Link>
               </li>
               <li>
                 <Link to="/register" className="text-background/70 hover:text-primary transition-colors text-sm">
-                  Become a Donor
+                  {t('cta.forDonors')}
                 </Link>
               </li>
               <li>
                 <Link to="/hospital-register" className="text-background/70 hover:text-primary transition-colors text-sm">
-                  Hospital Registration
+                  {t('cta.hospitalRegistration')}
                 </Link>
               </li>
               <li>
                 <Link to="/faq" className="text-background/70 hover:text-primary transition-colors text-sm">
-                  FAQ
+                  {t('footer.faq')}
                 </Link>
               </li>
             </ul>
@@ -71,26 +71,26 @@ const Footer = () => {
 
           {/* For Hospitals */}
           <div>
-            <h4 className="font-semibold text-lg mb-4">For Hospitals</h4>
+            <h4 className="font-semibold text-lg mb-4">{t('footer.forHospitals')}</h4>
             <ul className="space-y-3">
               <li>
-                <Link to="/hospital-login" className="text-background/70 hover:text-primary transition-colors text-sm">
-                  Hospital Login
+                <Link to="/hospital/login" className="text-background/70 hover:text-primary transition-colors text-sm">
+                  {t('login.hospitalTitle')}
                 </Link>
               </li>
               <li>
                 <Link to="/verification" className="text-background/70 hover:text-primary transition-colors text-sm">
-                  Verification Process
+                  {t('footer.verificationProcess')}
                 </Link>
               </li>
               <li>
                 <Link to="/guidelines" className="text-background/70 hover:text-primary transition-colors text-sm">
-                  Donation Guidelines
+                  {t('footer.donationGuidelines')}
                 </Link>
               </li>
               <li>
                 <Link to="/support" className="text-background/70 hover:text-primary transition-colors text-sm">
-                  Support Center
+                  {t('footer.supportCenter')}
                 </Link>
               </li>
             </ul>
@@ -98,27 +98,27 @@ const Footer = () => {
 
           {/* Contact */}
           <div>
-            <h4 className="font-semibold text-lg mb-4">Contact Us</h4>
+            <h4 className="font-semibold text-lg mb-4">{t('footer.contactUs')}</h4>
             <ul className="space-y-4">
               <li className="flex items-start gap-3">
                 <Phone className="w-5 h-5 text-primary mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Emergency Helpline</p>
+                  <p className="text-sm font-medium">{t('footer.emergencyHelpline')}</p>
                   <p className="text-background/70 text-sm">1-800-DONORIA</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <Mail className="w-5 h-5 text-primary mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Email</p>
+                  <p className="text-sm font-medium">{t('profile.email')}</p>
                   <p className="text-background/70 text-sm">support@donoria.com</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-primary mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Headquarters</p>
-                  <p className="text-background/70 text-sm">Healthcare District, Medical City</p>
+                  <p className="text-sm font-medium">{t('footer.headquarters')}</p>
+                  <p className="text-background/70 text-sm">{t('footer.address')}</p>
                 </div>
               </li>
             </ul>
@@ -127,14 +127,14 @@ const Footer = () => {
 
         <div className="border-t border-background/10 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-background/50 text-sm">
-            © 2025 Donoria. All rights reserved.
+            {t('footer.rightsReserved')}
           </p>
           <div className="flex gap-6">
             <Link to="/privacy" className="text-background/50 hover:text-primary transition-colors text-sm">
-              Privacy Policy
+              {t('register.privacyPolicy')}
             </Link>
             <Link to="/terms" className="text-background/50 hover:text-primary transition-colors text-sm">
-              Terms of Service
+              {t('register.termsOfService')}
             </Link>
           </div>
         </div>

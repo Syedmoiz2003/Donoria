@@ -88,8 +88,8 @@ const EmergencyButton = () => {
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between h-16">
               <Link to="/" className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                  <Heart className="w-6 h-6 text-primary-foreground" />
+                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center overflow-hidden">
+                  <img src="/favicon.ico" alt="Donoria Logo" className="w-7 h-7 object-contain" />
                 </div>
                 <span className="font-bold text-lg">Donoria</span>
               </Link>
@@ -145,12 +145,12 @@ const EmergencyButton = () => {
       <header className="sticky top-0 z-50 glass border-b border-border">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <Heart className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <span className="font-bold text-lg">Donoria</span>
-            </Link>
+              <Link to="/" className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center overflow-hidden">
+                  <img src="/favicon.ico" alt="Donoria Logo" className="w-7 h-7 object-contain" />
+                </div>
+                <span className="font-bold text-lg">Donoria</span>
+              </Link>
 
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" className="relative">

@@ -2418,6 +2418,144 @@ const translations = {
     en: 'Sign Out',
     ur: 'لاگ آؤٹ',
   },
+
+  // Footer
+  'footer.description': {
+    en: 'Connecting donors with hospitals to save lives through secure, verified blood and organ donation coordination.',
+    ur: 'خون کے عطیہ دہندگان کو ہسپتالوں سے جوڑنا تاکہ محفوظ اور تصدیق شدہ خون اور اعضاء کے عطیہ کے ذریعے زندگیاں بچائی جا سکیں۔',
+  },
+  'footer.quickLinks': {
+    en: 'Quick Links',
+    ur: 'فوری لنکس',
+  },
+  'footer.forHospitals': {
+    en: 'For Hospitals',
+    ur: 'ہسپتالوں کے لیے',
+  },
+  'footer.contactUs': {
+    en: 'Contact Us',
+    ur: 'ہم سے رابطہ کریں',
+  },
+  'footer.faq': {
+    en: 'FAQ',
+    ur: 'عام سوالات',
+  },
+  'footer.verificationProcess': {
+    en: 'Verification Process',
+    ur: 'تصدیق کا عمل',
+  },
+  'footer.donationGuidelines': {
+    en: 'Donation Guidelines',
+    ur: 'عطیہ کی ہدایات',
+  },
+  'footer.supportCenter': {
+    en: 'Support Center',
+    ur: 'سپورٹ سینٹر',
+  },
+  'footer.emergencyHelpline': {
+    en: 'Emergency Helpline',
+    ur: 'ایمرجنسی ہیلپ لائن',
+  },
+  'footer.headquarters': {
+    en: 'Headquarters',
+    ur: 'صدر دفتر',
+  },
+  'footer.address': {
+    en: 'Healthcare District, Medical City',
+    ur: 'ہیلتھ کیئر ڈسٹرکٹ، میڈیکل سٹی',
+  },
+  'footer.rightsReserved': {
+    en: '© 2025 Donoria. All rights reserved.',
+    ur: '© 2025 ڈونوریا۔ جملہ حقوق محفوظ ہیں۔',
+  },
+
+  // How It Works Details
+  'step.register.detail1': {
+    en: 'Fill out your medical history',
+    ur: 'اپنی طبی تاریخ بھریں',
+  },
+  'step.register.detail2': {
+    en: 'Verify your identity',
+    ur: 'اپنی شناخت کی تصدیق کریں',
+  },
+  'step.register.detail3': {
+    en: 'Set your availability preferences',
+    ur: 'اپنی دستیابی کی ترجیحات سیٹ کریں',
+  },
+  'step.match.detail1': {
+    en: 'Real-time matching algorithm',
+    ur: 'حقیقی وقت کا میچنگ الگورتھم',
+  },
+  'step.match.detail2': {
+    en: 'Location-based filtering',
+    ur: 'مقام پر مبنی فلٹرنگ',
+  },
+  'step.match.detail3': {
+    en: 'Emergency priority system',
+    ur: 'ایمرجنسی ترجیحی نظام',
+  },
+  'step.respond.detail1': {
+    en: 'Instant notifications',
+    ur: 'فوری اطلاعات',
+  },
+  'step.respond.detail2': {
+    en: 'One-tap confirmation',
+    ur: 'ایک ٹیپ کی تصدیق',
+  },
+  'step.respond.detail3': {
+    en: 'Real-time tracking',
+    ur: 'حقیقی وقت کی ٹریکنگ',
+  },
+  'step.donate.detail1': {
+    en: 'Scheduled appointments',
+    ur: 'شیڈول شدہ ملاقاتیں',
+  },
+  'step.donate.detail2': {
+    en: 'Professional medical staff',
+    ur: 'پیشہ ور طبی عملہ',
+  },
+  'step.donate.detail3': {
+    en: 'Post-donation care',
+    ur: 'عطیہ کے بعد کی دیکھ بھال',
+  },
+
+  // Team Details
+  'about.team.name1': {
+    en: 'Dr. Sarah Johnson',
+    ur: 'ڈاکٹر سارہ جانسن',
+  },
+  'about.team.role1': {
+    en: 'Medical Director',
+    ur: 'میڈیکل ڈائریکٹر',
+  },
+  'about.team.desc1': {
+    en: '15+ years in transfusion medicine',
+    ur: 'ٹرانسفیوژن میڈیسن میں 15 سال سے زیادہ کا تجربہ',
+  },
+  'about.team.name2': {
+    en: 'Michael Chen',
+    ur: 'مائیکل چن',
+  },
+  'about.team.role2': {
+    en: 'Technology Lead',
+    ur: 'ٹیکنالوجی لیڈ',
+  },
+  'about.team.desc2': {
+    en: 'Expert in healthcare AI systems',
+    ur: 'ہیلتھ کیئر AI سسٹمز میں ماہر',
+  },
+  'about.team.name3': {
+    en: 'Emily Rodriguez',
+    ur: 'ایملی روڈریگز',
+  },
+  'about.team.role3': {
+    en: 'Community Manager',
+    ur: 'کمیونٹی منیجر',
+  },
+  'about.team.desc3': {
+    en: 'Passionate about donor engagement',
+    ur: 'عطیہ دہندگان کی شمولیت کے بارے میں پرجوش',
+  },
 };
 
 const LanguageContext = createContext(undefined);
